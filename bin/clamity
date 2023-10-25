@@ -1,0 +1,8 @@
+#!/bin/bash
+
+# clamity is defined as a shell function (loader.sh). That will supersede this script
+
+echo "clamity does not appear to be loaded into this shell."
+echo
+clamPath="$(cd `dirname $0`/.. && pwd)"
+echo "Maybe try 'source $clamPath/loader.sh' ?"
