@@ -1,0 +1,5 @@
+#!/bin/bash
+
+# provides an executable interface to the 'clamity' shell function
+source "`dirname $0`/../helper.sh" -silent || exit 1
+clamity "$@"

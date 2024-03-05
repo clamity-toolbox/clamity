@@ -1,0 +1,178 @@
+#!/usr/bin/env bash
+
+# desc: simple package manager abstraction
+
+source $CLAMITY_ROOT/lib/_.sh || exit 1
+
+function sub_usage {
+	echo "
+	clamity os pkg {action} ...
+
+		abstracted                                      # list abstracted packages
+		installed [--ask-to-install] pkg [pkg ...]      # test if pkgs are installed
+"
+}
+
+function sub_man_page {
+	echo "ABSTRACT
+
+	The 'clamity os pkg' module is an abstraction for package
+	management for the OS. Clamity needs to know which system
+	package	manager(s) you want to use. It will take a guess
+	or you can configure it. For linux distros, it will go with
+	the native package manager (yum, apt, etc..) and for OSX
+	it can work with macports or homebrew. It also manages
+	python packages.
+
+	The goal is to provide a consistent interface to install
+	and configure all software packages used by clamity.
+
+OPTIONS
+
+	--ask-to-install
+		Will prompt to install a package if it isn't installed.
+
+ENVIRONMENT VARIABLES
+
+	CLAMITY_OS_PKG_MGR
+		Supported package managers: brew | port | yum | apt
+
+		For linux distros, the system's known package manager will
+		be used and this variable ignored.
+"
+}
+
+# pkg | min version | src (python|os) | brief desc
+AbstractedPaackages = "
+aws|2|python|aws cli utility
+python3|3.10|os|python3 interpreter used to create virtual env
+"
+
+function list_abstracted {
+	echo "
+aws           aws cli utility (>= 2.x)
+python3       python3 (>= 3.10.x)
+"
+	# docker        docker server
+	# iptables      iptables port redirection service (v4 only)
+	# mail          postfix email server
+	# mariadb       MariaDB
+	# mysql         MySQL
+	# newrelic      New Relic infrastructure agent
+	# nginx         nginx
+	# parallel      parallel command execution
+	# powershell    microsoft powershell (pwsh) for linux
+	# vscode        visual studio code
+	return 0
+}
+# _ABSTRACTED_PKGS="awscli|awscliv2|docker|iptables|mail|mariadb|mysql|nginx|parallel|powershell|python|newrelic|vscode"
+_ABSTRACTED_PKGS="aws|python3"
+
+function is_abstracted_pkg {
+	local pkg=$1
+	echo ,$pkg, | egrep -qe ",($_ABSTRACTED_PKGS),"
+}
+
+# version comparison in pure shell (blech)
+# returns
+#   1   $1 > $2
+#   2   $2 < $1
+#   0   otherwise
+function compare_software_version {
+	_debug "compare_software_version $1 $2"
+	[[ $1 == $2 ]] && return 0
+	local IFS=.
+	local i ver1=($1) ver2=($2)
+	for ((i=${#ver1[@]}; i<${#ver2[@]}; i++))
+	do
+		ver1[i]=0	# fill empty fields in ver1 with zeros
+	done
+	for ((i=0; i<${#ver1[@]}; i++))
+	do
+		[[ -z ${ver2[i]} ]] && ver2[i]=0	# pad empty fields in ver2 with zeros
+		((10#${ver1[i]} > 10#${ver2[i]})) && return 1
+		((10#${ver1[i]} < 10#${ver2[i]})) && return 2
+	done
+	return 0
+}
+
+function cmd_version {
+	case "$1" in
+		python3|brew) $cmd --version|awk '{print $2}';;
+		aws) aws --version | awk '{print $2}' | cut -f1 -d/;;
+		port) port version | awk '{print $2}';;
+		*) _error "unknown command"; return 1;;
+	esac
+}
+
+function set_pkg_mgr_to {
+	_run $CLAMITY_ROOT/bin/run-clamity set default os_pkg_mgr $1
+}
+
+function select_macos_pkg_mgr {
+	which port >/dev/null 2>&1 && local macports=1 || local macports=0
+	which brew >/dev/null 2>&1 && local homebrew=1 || local homebrew=0
+	[ $macports -eq 0  -a  $homebrew=0 ] && echo "homebrew nor macports detected. Sorry." && return 1
+	[ $macports -eq 1 ] && _ask "Do you want macports as your default pkg manager (y/N)? " && set_pkg_mgr_to port && return 0
+	[ $homebrew -eq 1 ] && _ask "Do you want homebrew as your default pkg manager (y/N)? " && set_pkg_mgr_to brew && return 0
+	return 1
+}
+
+function get_os_pkg_mgr {
+	local os=`_os`
+	[ -z "$os" ] && _error "OS $os not supported" && return 1
+	case "$os" in
+		al2) echo "yum";;
+		macos)
+			[ -z "$CLAMITY_OS_PKG_MGR" ] || { ! echo $CLAMITY_OS_PKG_MGR | grep -q '^(brew|port)$'; } && select_macos_pkg_mgr
+			[ -z "$CLAMITY_OS_PKG_MGR" ] && return 1
+			;;
+		*)
+	esac
+	[ -n "$CLAMITY_OS_PKG_MGR" ] && { echo $CLAMITY_OS_PKG_MGR | grep -q '^(brew|port|yum|apt)$' || { _error "pkg manager $CLAMITY_OS_PKG_MGR is not suppoered"; return 1; }}
+	[ -n "$CLAMITY_OS_PKG_MGR" ] && echo $CLAMITY_OS_PKG_MGR && return
+}
+
+function install_cmd {
+	local cmd="$1"
+	_ask "Install $cmd (y/N)? "
+	is_abstracted_pkg "$cmd" && { install_abstracted_pkg "$cmd"; return $?;; }
+}
+
+function check_cmd_version {
+	local cmd="$1"
+	local ver=`cmd_version $cmd`
+	[ -z "$ver" ] && return 0  # command version not available. Assume ok.
+	local minVer=`cmd_min_version $cmd`
+	[ -z "$minVer" ] && return 0 # command min version not available. Assume ok.
+	compare_software_version $ver $minVer; local rc=$?
+	[ $rc -eq 2 ] && _error "command $cmd version ($ver) does not meet minimum version ($minVer)" && return 1
+	return 0
+}
+
+function is_cmd_installed {
+	local cmd rc=0
+	for cmd in "$@"; do
+		which $cmd >/dev/null 2>&1 && { check_cmd_version $cmd || rc=1; continue; }
+		[ $AskToInstall -eq 1 ] && {  && install_cmd $cmd || rc=1; }
+	done
+	return $rc
+}
+
+action="$1"
+[ -z "$action" ] && sub_usage && exit 1
+[ "$action" == help ] && man_page && exit 1
+shift
+
+# These will be global to the script
+set_option_defaults \
+	AskToInstall    "--ask-to-install"    1  0
+parse_options "$@"
+eval set -- ${PARGS_POSITIONAL[@]}   # accomodates '--' for positional args ("$@")
+
+case "$action" in
+	installed) is_cmd_installed "$@"; exit $?;;
+	abstracted) list_abstracted; exit 1;;
+	*) _error "unknown pkg action ($action)" && sub_usage && exit 1;;
+esac
+exit 0

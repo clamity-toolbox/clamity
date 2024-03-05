@@ -1,0 +1,81 @@
+{
+	"desc": "common options common to all clamity commands",
+	"options": {
+		"verbose": {
+			"desc": "Enables verbose output",
+			"longDesc": "",
+			"cli": "--verbose",
+			"aliases": [
+				"-v"
+			],
+			"groups": [
+			],
+			"default": false,
+			"type": "bool"
+		},
+		"quiet": {
+			"desc": "Suppresses all output except warnings and errors",
+			"longDesc": "",
+			"cli": "--quiet",
+			"aliases": [
+				"-q",
+				"-silent",
+				"-s"
+			],
+			"groups": [
+			],
+			"type": "bool"
+		},
+		"debug": {
+			"desc": "Adds debugging output",
+			"longDesc": "Enables verbose mode and reports debugging statements in clamity code.",
+			"cli": "--debug",
+			"aliases": [
+				"-d"
+			],
+			"groups": [
+			],
+			"type": "bool"
+		},
+		"yes": {
+			"desc": "Disables interactive execution by way of answering all questions affirmatively (batch mode)",
+			"longDesc": "",
+			"cli": "--yes",
+			"aliases": [
+				"-y"
+			],
+			"groups": [
+			],
+			"type": "bool"
+		},
+		"dryrun": {
+			"desc": "In dryrun mode, no destructive or mutable actions are taken. Look before leaping",
+			"longDesc": "",
+			"cli": "--dryrun",
+			"aliases": [
+				"-n"
+			],
+			"groups": [
+			],
+			"type": "bool"
+		},
+		"output_format": {
+			"desc": "output data format (table, json, text)",
+			"longDesc": "",
+			"cli": "--output-format",
+			"aliases": [
+				"-of",
+				"--ofmt"
+			],
+			"values": [
+				"json",
+				"table",
+				"csv"
+			],
+			"groups": [
+			],
+			"type": "str",
+			"default": "table"
+		}
+	}
+}

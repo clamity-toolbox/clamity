@@ -1,33 +1,28 @@
 
-# This is sourced into the current shell environment. Keep it brief!
+# Loads the clamity shell function.
 #
-# supported shells: bash, zsh
-#
-# optional args
-#    $1  /path/to/clamity/project/repo  (CLAMITY_ROOT)
+# Supported shells: bash, zsh
 
-function _is_true {
-    [ -n "$1" ] && echo "$1" | egrep -qie '1|yes|y|true|t'
-}
-function _is_false {
-    ! _is_true "$1"
-}
-function _dirname {
-    echo "$1" | grep -q '/' && (cd `dirname "$1"` && pwd)
-}
-
-# _is_false "$CLAMITY_SHELL_CACHE_DISABLE" && [ -n "$__clam_loaded" ] && return 0  # cache shell libs
-
-[ -z "$CLAMITY_ROOT" ] && { [ -n "$1" ] && export CLAMITY_ROOT="$1" || export CLAMITY_ROOT=$(_dirname "$0"); }
-[ -z "$CLAMITY_ROOT" ] && echo "Cannot determine CLAMITY_ROOT. Set it with 'export CLAMITY_ROOT=/full/path/to/repo'." >&2 && return 1
-
-__clam_loaded=1
-
-# Main CLI command is implemented as a shell function
 function clamity {
-    [ "$1" = "shell" ] && { shift && source $CLAMITY_ROOT/bin/clamity-shenv.sh -no-opts "$@"; return $?; }
-    $CLAMITY_ROOT/bin/clamity.sh -no-opts "$@"
+	# setup clamity home dir
+	[ ! -d "$CLAMITY_HOME/logs" ] && { mkdir -p "$CLAMITY_HOME/logs" || { echo "cannot create $CLAMITY_HOME/logs" >&2 && return 1; } }
+
+	# run a clamity command
+	_run_clamity_cmd "" "$@"
 }
-# export -f clamity
+
+# set CLAMITY_ROOT - where the clamity code is located
+_scriptDir=$(cd `dirname $0` && pwd)
+[ -z "$CLAMITY_ROOT" ] && export CLAMITY_ROOT="$_scriptDir"
+[ "$_scriptDir" != "$CLAMITY_ROOT" ] && echo "loader script location ($_scriptDir) does not match CLAMITY_ROOT ($CLAMITY_ROOT)" >&2 && return 1
+
+source $CLAMITY_ROOT/lib/_.sh || return 1
+
+# set CLAMITY_HOME - location of clamity local configuration and working data
+[ -z "$CLAMITY_HOME" ] && export CLAMITY_HOME="$HOME/.clamity"
+
+_load_clamity_defaults || return 1
+
+echo $* | grep -q '\--quiet' || echo "Type 'clamity' for usage, 'clamity help' for more."
 
 return 0

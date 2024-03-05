@@ -1,0 +1,85 @@
+#!/usr/bin/env bash
+
+source $CLAMITY_ROOT/lib/_.sh || exit 1
+
+# desc: clamity man page
+
+function clamity_usage {
+
+	_echo -e "
+	clamity help
+	clamity { <command> [sub-command] } [options] [positional args]
+
+COMMANDS
+
+`_describe_sub_commands $CLAMITY_ROOT/cmds "$CustomUsage"`
+"
+	return 0
+}
+
+
+function man_page {
+	# parse_common_options_help
+	_echo "ABSTRACT
+
+	clamity is implemented as a shell function and so can manipulate
+	the current shell. Use 'run-clamity' if including it in scripts.
+	Default settings are stored globally for your OS user, effecting
+	all your shells running clamity.
+
+	All local settings and data are stored in \$CLAMITY_HOME (defaults
+	to ~/.clamity).
+
+ENVITONMENT VARIABLES
+
+	These are set when clamity is loaded. You can pre-define CLAMITY_HOME
+	if you don't want it to be '\$HOME/.clamity'.
+
+	CLAMITY_ROOT
+		clamity installtion directory. This is set when clamity is loaded.
+
+	CLAMITY_HOME
+		clamity home dir holds logs, customizations, python virtual env,
+		and much more. It is created when clamity is loaded for the first
+		time. Unless this variable is set, it will be ~/.clamity/.
+
+	More generally, clamity options are managed using 'clamity config'.
+	Options stored as environment variables will be prefixed with 'CLAMITY_'.
+
+	For variables interpreted as booleans, truthiness defines 'false' as
+	an empty string or match to 'n|no|0|null|none|undefined|undef|f|false'.
+	The '_is_false' shell function in 'lib/_.sh' is the source of truth for
+	that.
+
+SUPPORTED SHELLS
+
+	bash, zsh
+
+EXAMPLES
+
+	Update clamity software.
+
+		clamity selfupdate
+
+	Check out the OS environment and configuration.
+
+		clamity os check
+
+	Set a config parameter, in this case CLAMITY_VERBOSE, in the current
+	shell only.
+
+		clamity config set verbose 1
+
+	Same as above but set this as a default. It will affect all other clamity
+	shells immediately (no reloading). Default settings are stored in
+	\$CLAMITY_HOME/defaults.env.
+
+		clamity config set default verbose 1
+
+"
+	return 0
+}
+
+clamity_usage
+[ -n "$1" ] && man_page
+exit 1

@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+
+echo "node execution environment not coded up yet" >&2
+exit 1

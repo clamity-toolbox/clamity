@@ -1,0 +1,69 @@
+#!/usr/bin/env bash
+
+# desc: brief description of this command (appears in 'clamity' usage)
+
+source $CLAMITY_ROOT/lib/_.sh || exit 1
+
+# Each command MUST have this function defined
+function command_man_page {
+	echo "ABSTRACT
+
+	The cicd cmd is for automation associated with CI/CD pipelines.
+
+USAGE
+
+	sub-cmd-a [--opt-a | --opt-name <name> ]
+
+COMMAND OPTIONS
+
+	--opt-a
+		boolean yes or no
+
+	--opt-name <name>
+		the name of the thing you specifed using --opt-name.
+
+`parse_common_options_help`
+
+EXAMPLES
+"
+	return 0
+}
+
+# If this script help the code to do the sub-command
+# function do_sub_task {
+# 	# return 0 if successful, else 1
+# 	return 0
+# }
+
+# describe sub-commands implemented in this script (not in external scripts)
+customCmdDesc=""
+# customCmdDesc="
+# \n\tsubtask - do this sub task
+# \n\totherthung - do the other thing
+# "
+
+# Handle usage and command man page
+cmd=`basename $0`
+subcmd="$1"
+_usage "$cmd" "$subcmd" "$customCmdDesc" || exit 1
+[ -n "$subcmd" ] && shift
+
+# Simple shell options parser - includes common options
+# ---------------------------
+# Options are export env vars prefixed with CLAMITY_. eg.
+#   CLAMITY_verbose="1"
+#   CLAMITY_optWithValue="sub-value"
+setup_clamity_options_parser \
+	optVarName    --opt-name    "<value-if-set>"  "<default>" \
+	boolOpttName  --opt2-name   1                 0 \
+	optWithValue  --val-opt     :                 ""       # : expects 1 arg
+parse_clamity_options "$@"
+eval set -- ${PARGS_POSITIONAL}   # accomodates '--' for positional args
+# "$@" now represents positional args. CLAMITY_* vars set (and exported)
+
+# Execute sub-commands
+case "$subcmd" in
+	# my_sub_task) do_sub_task "$@" || exit 1;;
+	*) _run_clamity_subcmd "$cmd" "$subcmd" "$@" || _usage "$cmd" "" "$customCmdDesc" ||exit 1;;
+esac
+exit 0

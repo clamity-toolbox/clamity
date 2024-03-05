@@ -1,8 +1,0 @@
-#!/usr/bin/env bash
-
-# brief_description: Update local clamity installation
-
-opts="$1"
-shift || exit 1
-
-cd "$CLAM_ROOT" && git pull origin --rebase

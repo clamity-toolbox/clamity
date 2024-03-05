@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+
+# clamity python scripts are executed in their own virtual environment and find
+# the clamity python module via $PYTHONPATH (not pip).
+
+source $CLAMITY_ROOT/lib/_.sh || return 1
+
+function setup_venv {
+	_cmds_exist python3 || return 1
+	_echo "setting up python virtual environment: python3 -m venv $CLAMITY_HOME/pyvenv"
+	_run python3 -m venv $CLAMITY_HOME/pyvenv
+}
+
+function install_core_modules {
+	_echo "installing core python modules"
+	_run $CLAMITY_HOME/pyvenv/bin/pip3 install `grep -v '^#' $CLAMITY_ROOT/etc/dependencies/core-python-modules.txt`
+}
+
+function update_pip_pkgs {
+	_run $CLAMITY_HOME/pyvenv/bin/pip3 update installed || return 1
+	_run $CLAMITY_HOME/pyvenv/bin/pip3 update pip || return 1
+}
+
+[ ! -d "$CLAMITY_HOME/pyvenv/bin/python3" ] && setup_venv && install_core_modules || exit 1
+
+[ "$1" == 'update' ] && { update_pip_pkgs; exit $?; }
+
+export PYTHONPATH="$CLAMITY_ROOT/lib/py:$PYTHONPATH"
+_run $CLAMITY_HOME/pyvenv/bin/python3 "$@"

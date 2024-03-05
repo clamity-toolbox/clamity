@@ -1,0 +1,20 @@
+{
+	"python3": {
+		"minVersion": "3.10",
+		"macports": [
+			"python310",
+			"python3_select"
+		]
+	},
+	"pip3": {
+		"macports": [
+			"py310-pip",
+			"pip-select"
+		]
+	},
+	"gdate": {
+		"brew": "coreutils",
+		"macports": "coreutils"
+	},
+	"jq": {}
+}
