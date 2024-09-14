@@ -2,12 +2,13 @@
 
 # desc: keep your clamity installation up to date
 
-# this script is sourced.
-# Supported shells: bash, zsh
+# THIS FILE IS SOURCED INTO AND THEREFORE MUTATES THE CURRENT SHELL
+
+# supported shells: bash, zsh
 
 source $CLAMITY_ROOT/lib/_.sh || exit 1
 
-function update_git_installation {
+function update_clamity_git_installation {
 	_echo "git repo installation detected"
 	pushd "$CLAMITY_ROOT" || return 1
 	[ `git status -s | wc -l` -ne 0 ] && { _fatal "'git status' did not report a clean repo. update aborted." && popd; return 1; }
@@ -17,7 +18,7 @@ function update_git_installation {
 	return $rc
 }
 
-function update_tarball_installaton {
+function update_clamity_tarball_installaton {
 	_echo "tarball installation assumed ('cause it ain't a git repo)"
 	_echo "not implemented yet"
 	return 1

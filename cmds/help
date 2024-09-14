@@ -22,13 +22,18 @@ function man_page {
 	# parse_common_options_help
 	_echo "ABSTRACT
 
+	clamity is a collection of tools for software development, CI/CD
+	pipeline automation and operations. It also provides an abstracted
+	interface with contextual help to ease the cognative load that comes
+	with this plethora of commands.
+
 	clamity is implemented as a shell function and so can manipulate
-	the current shell. Use 'run-clamity' if including it in scripts.
-	Default settings are stored globally for your OS user, effecting
-	all your shells running clamity.
+	the current shell environment. Use 'run-clamity' if including its
+	commands in scripts. Default settings are stored in a central file,
+	effecting all your shells running clamity.
 
 	All local settings and data are stored in \$CLAMITY_HOME (defaults
-	to ~/.clamity).
+	to \$HOME/.clamity).
 
 ENVITONMENT VARIABLES
 
@@ -44,18 +49,21 @@ ENVITONMENT VARIABLES
 		time. Unless this variable is set, it will be ~/.clamity/.
 
 	More generally, clamity options are managed using 'clamity config'.
-	Options stored as environment variables will be prefixed with 'CLAMITY_'.
+	Options stored as environment variables that will be prefixed with
+	'CLAMITY_'.
 
 	For variables interpreted as booleans, truthiness defines 'false' as
-	an empty string or match to 'n|no|0|null|none|undefined|undef|f|false'.
+	an empty string or a match to 'n|no|0|null|none|undefined|undef|f|false'.
 	The '_is_false' shell function in 'lib/_.sh' is the source of truth for
-	that.
+	truthiness.
 
 SUPPORTED SHELLS
 
 	bash, zsh
 
 EXAMPLES
+
+	Run 'clamity' or 'clamity help' to get started.
 
 	Update clamity software.
 
@@ -65,14 +73,14 @@ EXAMPLES
 
 		clamity os check
 
-	Set a config parameter, in this case CLAMITY_VERBOSE, in the current
+	Set a config parameter, in this case CLAMITY_verbose, in the current
 	shell only.
 
 		clamity config set verbose 1
 
-	Same as above but set this as a default. It will affect all other clamity
-	shells immediately (no reloading). Default settings are stored in
-	\$CLAMITY_HOME/defaults.env.
+	Same as above but set it as a default. It will also have affect for
+	all other shells when you run clamity commands. Default settings are
+	stored in \$CLAMITY_HOME/defaults.env.
 
 		clamity config set default verbose 1
 
@@ -80,6 +88,7 @@ EXAMPLES
 	return 0
 }
 
+[ "$1" == "--full" ] && [ -n "$2" ] && [ -x "$CLAMITY_ROOT/cmds/$2" -o -x "$CLAMITY_ROOT"/cmds/$2.* ] && { run-clamity $2 help; exit 1; }
 clamity_usage
 [ -n "$1" ] && man_page
 exit 1

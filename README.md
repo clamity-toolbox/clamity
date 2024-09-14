@@ -1,38 +1,28 @@
 # Clamity - Yet Another Toolkit
 
-_A development & operational toolbox for modern SaaS infrastructure. And also
-because tools separate us from the animals._
+_Because tools separate us from the animals._
 
-Sometimes it's for little helper tasks. Sometimes it supports larger operational
-workflows. It can be a useable knowledgebase for recalling all those little
-things you had to research and figure out once but do not repeat frequently
-enough to keep in your brain.
-
-Or because it provides a nice consistent command line interface for everything
-under the sun, featuring relevant context sensitive help where you need it so
-you don't have to constantly find the right documentation.
-
-For minimizing your overall cognitive load because you've got lots of other
-things to do.
-
-Ultimately, it's born from my personal journey and approach for providing
-structure, automation and repeatability in software development and
-infrastructure operations which I've had to contend with in my 35+ year carreer.
-
+Clamity was born from my personal journey and approach for providing structure,
+automation and repeatability for CI/CD software development and infrastructure
+operations.
 
 ## Considerations
 
 * The toolbox favors unix-like operating systems, notably linux and OSX.
-* Where the CLI is concerned, **zsh** or **bash** are supported.
-* Clamity requires python >= 3.10. It will setup its own virtual environment
-  when you run your first `clamity` command.
-* Have a clamity supported package manager installed on your computer. Clamity
-  builds on lots of 3rd party software and services and will prompt you to
-  install additional software along the way. Supported package managers for
-  macos are [macports](https://macports.org) and [Homebrew](https://brew.sh);
-  And `yum/rpm` & `apt/dpkg` for some linux distros. It's on you to make sure
-  they're installed and available in your search path when using clamity on
-  the terminal CLI.
+
+* Where the Clamity CLI is concerned, **zsh** or **bash** are supported.
+
+* Make sure you have a Clamity supported package manager installed on your
+  computer and in your search path (`PATH`). Clamity builds on lots of 3rd party
+  software and services and will prompt you to install additional software along
+  the way.
+
+  Package managers for macos:
+   - [macports](https://macports.org) [`port version`]
+   - [Homebrew](https://brew.sh) [`brew --version`]
+  Package managers for supported linux distros:
+   - **yum/rpm** for Fedora/CentOS/Red Hat flavors
+   - **apt/dpkg** for Ubuntu/Debian flavors
 
 
 ## Quickstart

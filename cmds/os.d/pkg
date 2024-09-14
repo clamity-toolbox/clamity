@@ -16,16 +16,16 @@ function sub_usage {
 function sub_man_page {
 	echo "ABSTRACT
 
-	The 'clamity os pkg' module is an abstraction for package
-	management for the OS. Clamity needs to know which system
-	package	manager(s) you want to use. It will take a guess
-	or you can configure it. For linux distros, it will go with
-	the native package manager (yum, apt, etc..) and for OSX
-	it can work with macports or homebrew. It also manages
-	python packages.
+	The 'clamity os pkg' module is an abstraction for OS package
+	management. Clamity needs to know which system package manager
+	you want to use. It will take a guess or you can configure it.
+	For linux distros, it goes with the native package manager (yum,
+	apt, etc..). MacOS works with macports or homebrew.
 
-	The goal is to provide a consistent interface to install
-	and configure all software packages used by clamity.
+	The goal is to provide a consistent interface to install and
+	configure known packages across OS types. Some packages are
+	abstracted to represent groups of packages or custom
+	installation and configuration commands.
 
 OPTIONS
 
@@ -34,11 +34,8 @@ OPTIONS
 
 ENVIRONMENT VARIABLES
 
-	CLAMITY_OS_PKG_MGR
+	CLAMITY_os_pkg_mgr
 		Supported package managers: brew | port | yum | apt
-
-		For linux distros, the system's known package manager will
-		be used and this variable ignored.
 "
 }
 
@@ -106,31 +103,34 @@ function cmd_version {
 }
 
 function set_pkg_mgr_to {
-	_run $CLAMITY_ROOT/bin/run-clamity set default os_pkg_mgr $1
+	# _run $CLAMITY_ROOT/bin/run-clamity config set os_pkg_mgr $1
+	_run $CLAMITY_ROOT/bin/run-clamity config set default os_pkg_mgr $1
 }
 
 function select_macos_pkg_mgr {
 	which port >/dev/null 2>&1 && local macports=1 || local macports=0
 	which brew >/dev/null 2>&1 && local homebrew=1 || local homebrew=0
 	[ $macports -eq 0  -a  $homebrew=0 ] && echo "homebrew nor macports detected. Sorry." && return 1
+	[ `expr $macports + $homebrew` -gt 1 ] && echo "several package managers detected."
 	[ $macports -eq 1 ] && _ask "Do you want macports as your default pkg manager (y/N)? " && set_pkg_mgr_to port && return 0
 	[ $homebrew -eq 1 ] && _ask "Do you want homebrew as your default pkg manager (y/N)? " && set_pkg_mgr_to brew && return 0
 	return 1
 }
 
-function get_os_pkg_mgr {
+function pkg_mgr {
+	[ -n "$CLAMITY_os_pkg_mgr" ] && echo $CLAMITY_os_pkg_mgr && return
 	local os=`_os`
-	[ -z "$os" ] && _error "OS $os not supported" && return 1
+	[ -z "$os" ] && _error "OS $os not supported" && return
 	case "$os" in
 		al2) echo "yum";;
-		macos)
-			[ -z "$CLAMITY_OS_PKG_MGR" ] || { ! echo $CLAMITY_OS_PKG_MGR | grep -q '^(brew|port)$'; } && select_macos_pkg_mgr
-			[ -z "$CLAMITY_OS_PKG_MGR" ] && return 1
+		macos) select_macos_pkg_mgr;;
+			[ -z "$CLAMITY_os_pkg_mgr" ] || { ! echo $CLAMITY_os_pkg_mgr | grep -q '^(brew|port)$'; } && select_macos_pkg_mgr
+			[ -z "$CLAMITY_os_pkg_mgr" ] && return 1
 			;;
 		*)
 	esac
-	[ -n "$CLAMITY_OS_PKG_MGR" ] && { echo $CLAMITY_OS_PKG_MGR | grep -q '^(brew|port|yum|apt)$' || { _error "pkg manager $CLAMITY_OS_PKG_MGR is not suppoered"; return 1; }}
-	[ -n "$CLAMITY_OS_PKG_MGR" ] && echo $CLAMITY_OS_PKG_MGR && return
+	[ -n "$CLAMITY_os_pkg_mgr" ] && { echo $CLAMITY_os_pkg_mgr | grep -q '^(brew|port|yum|apt)$' || { _error "pkg manager $CLAMITY_os_pkg_mgr is not suppoered"; return 1; }}
+	[ -n "$CLAMITY_os_pkg_mgr" ] && echo $CLAMITY_os_pkg_mgr && return
 }
 
 function install_cmd {
@@ -159,6 +159,11 @@ function is_cmd_installed {
 	return $rc
 }
 
+function is_pkg_installed {
+	case "`pkg_mgr`" in
+	esac
+}
+
 action="$1"
 [ -z "$action" ] && sub_usage && exit 1
 [ "$action" == help ] && man_page && exit 1
@@ -171,7 +176,7 @@ parse_options "$@"
 eval set -- ${PARGS_POSITIONAL[@]}   # accomodates '--' for positional args ("$@")
 
 case "$action" in
-	installed) is_cmd_installed "$@"; exit $?;;
+	installed) is_pkg_installed "$@"; exit $?;;
 	abstracted) list_abstracted; exit 1;;
 	*) _error "unknown pkg action ($action)" && sub_usage && exit 1;;
 esac

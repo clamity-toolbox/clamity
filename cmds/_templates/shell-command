@@ -1,10 +1,19 @@
 #!/usr/bin/env bash
 
+# Copy this template to the 'cmds/' directory named for the command and make it
+# executable. The description comment below will appear in the usage.
+
+
 # desc: brief description of this command (appears in 'clamity' usage)
+
 
 source $CLAMITY_ROOT/lib/_.sh || exit 1
 
-# Each command MUST have this function defined
+# Each command MUST have this function defined. Sections are:
+#     ABSTRACT: brief summary of what the command does
+#     USAGE: show options for the various sub-commands
+#     COMMAND OPTIONS: describe options from USAGE
+#     EXAMPLES: useful examples on how to use the command
 function command_man_page {
 	echo "ABSTRACT
 
@@ -12,7 +21,7 @@ function command_man_page {
 
 USAGE
 
-	sub-cmd-a [--opt-a | --opt-name <name> ]
+	sub-cmd --opt-a [--opt-name thing]
 
 COMMAND OPTIONS
 
@@ -30,40 +39,56 @@ EXAMPLES
 }
 
 # If this script help the code to do the sub-command
-# function do_sub_task {
-# 	# return 0 if successful, else 1
-# 	return 0
-# }
+function do_sub_task {
+	# return 0 if successful, else 1
+	return 0
+}
 
-# describe sub-commands implemented in this script (not in external scripts)
-customCmdDesc=""
+
+# If you define sub-commands as additional functions in this script or take full
+# responsibility for locating and calling additional functions in this script
+# and need them in the sub-command usage help, add them to 'customCmdDesc'. Note
+# how each command is on its own line prefixed with '\n\t'.
+#
 # customCmdDesc="
 # \n\tsubtask - do this sub task
 # \n\totherthung - do the other thing
 # "
+customCmdDesc=""
 
-# Handle usage and command man page
+
+# Display standard usage and command man page when needed
 cmd=`basename $0`
 subcmd="$1"
 _usage "$cmd" "$subcmd" "$customCmdDesc" || exit 1
 [ -n "$subcmd" ] && shift
 
-# Simple shell options parser - includes common options
-# ---------------------------
-# Options are export env vars prefixed with CLAMITY_. eg.
-#   CLAMITY_verbose="1"
-#   CLAMITY_optWithValue="sub-value"
+
+# Parse shell options setting env vars prefixed with CLAMITY_. For example, this
+# code sets these vars if the options are specified.
+#
+#   CLAMITY_boolOptName="1"               # "0" if '--bool-opt' not set
+#   CLAMITY_optVarName="<value-if-set>"   # "<default>" if '--optVarName' not set
+#   CLAMITY_optWithValue2="<xxxx>"        # "green" if '--optWithValue2 green' else "<default-val>"
+#   CLAMITY_optWithValue="<user-input>"   # "green" if '--optWithVal green' else not set
 setup_clamity_options_parser \
-	optVarName    --opt-name    "<value-if-set>"  "<default>" \
-	boolOpttName  --opt2-name   1                 0 \
-	optWithValue  --val-opt     :                 ""       # : expects 1 arg
+	boolOpttName  --bool-opt   1                 0 \
+	optVarName    --opt-name   "<value-if-set>"  "<default>" \
+	optWithValue2 --val-opt2   :                 "<default-val>" \
+	optWithValue  --val-opt    :                 ""          # : expects 1 arg
+
 parse_clamity_options "$@"
 eval set -- ${PARGS_POSITIONAL}   # accomodates '--' for positional args
 # "$@" now represents positional args. CLAMITY_* vars set (and exported)
 
-# Execute sub-commands
+
+
+# Execute various sub-functions based on sub-command
 case "$subcmd" in
-	# my_sub_task) do_sub_task "$@" || exit 1;;
+	# call internally defined functions
+	subtask) do_sub_task "$@" || exit 1;;
+
+	# looks for a sub-command defined as its own exec command in 'cmds/<this-script-name>.d/'
 	*) _run_clamity_subcmd "$cmd" "$subcmd" "$@" || _usage "$cmd" "" "$customCmdDesc" ||exit 1;;
 esac
 exit 0

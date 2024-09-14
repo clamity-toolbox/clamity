@@ -1,7 +1,7 @@
 
 # desc: manage clamity configuration settings
 
-# THIS FILE IS SOURCED INTO (MUTATES) THE CURRENT SHELL
+# THIS FILE IS SOURCED INTO AND THEREFORE MUTATES THE CURRENT SHELL
 
 # supported shells: bash, zsh
 
@@ -127,15 +127,13 @@ function _c_set_config {
 			UnSet=1 && shift
 			[ "$1" = "default" ] && setAsDefault=1 && shift;;
 	esac
-	# validate input
-	prop="$1"
-	val="$2"
+	local prop="$1" val="$2"
 	# echo "Prop=$prop   val=$val"
+
+	# validate input
 	! _is_known_prop "$prop" && _warn "unknown config property: $prop" && return 1
 	[ $UnSet -eq 1 ] && [ -n "$val" ] && _warn "unset does not accept a value" && return 1
 	[ $UnSet -eq 0 ] && [ -z "$val" ] && _warn "set requires a property and value" && return 1
-
-	# echo "prop=$1  val=$2  unset=$UnSet  setAsDefault=$setAsDefault"
 
 	[ $UnSet -eq 0 ] && { _c_set_var "$prop" "$val" "$setAsDefault"; return $?; }
 	_c_unset_var "$prop" "$setAsDefault"
@@ -152,7 +150,7 @@ shift
 case "$subcmd" in
 	show) _c_show_config_settings "$@" || return 1;;
 	set|unset) _c_set_config "$@" || return 1;;
-	list) _clamity_config_options || return 1;;
+	list) _print_clamity_config_options || return 1;;
 	*) _c_config_usage && return 1;;
 esac
 return 0

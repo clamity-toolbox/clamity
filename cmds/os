@@ -4,12 +4,27 @@
 
 source $CLAMITY_ROOT/lib/_.sh || exit 1
 
-function local_man_page {	# generic man page?
-	_usage "$@"
+function command_man_page {
 	echo "ABSTRACT
 
 	The OS command is for configuring and managing your local host's
 	operating system.
+
+USAGE
+
+	sub-cmd-a [--opt-a | --opt-name <name> ]
+
+COMMAND OPTIONS
+
+	--opt-a
+		boolean yes or no
+
+	--opt-name <name>
+		the name of the thing you specifed using --opt-name.
+
+`parse_common_options_help`
+
+EXAMPLES
 "
 	return 0
 }
@@ -20,7 +35,10 @@ function check_os {
 		_echo -n "$cmd: "
 		`which $cmd >/dev/null 2>&1` || { _echo "not found" && continue; }
 		case $cmd in
-			aws|brew|python3|pip3|aws)
+			python3|pip3)
+				echo "`$cmd --version` [`which $cmd`]"
+				;;
+			aws|brew|aws)
 				$cmd --version;;
 			port)
 				$cmd version;;
@@ -42,6 +60,7 @@ function power_mgmt_usage {
 }
 
 function power_mgmt {
+	[ "`_os`" != macos ] && echo "power management only supported for macos" && return 1
 	[ -z "$1" ] && power_mgmt_usage && return 1
 	local rc=0
 	case "$1" in
@@ -56,18 +75,33 @@ function power_mgmt {
 }
 
 # describe sub-commands implemented here (not in external scripts)
-customCmds="
+customCmdDesc="
 \n\tcheck - probe OS for config & environment info
 \n\tpm - power management
 "
+
+# Handle usage and command man page
+cmd=`basename $0`
 subcmd="$1"
-[ -z "$subcmd" ] && _usage "`basename $0`" "$customCmds" && exit 1
-[ "$subcmd" == help ] && local_man_page `basename $0` "$customCmds" && exit 1
-shift
+_usage "$cmd" "$subcmd" "$customCmdDesc" || exit 1
+[ -n "$subcmd" ] && shift
+
+# Simple shell options parser - includes common options
+# ---------------------------
+# Options are export env vars prefixed with CLAMITY_. eg.
+#   CLAMITY_verbose="1"
+#   CLAMITY_optWithValue="sub-value"
+setup_clamity_options_parser
+	# optVarName    --opt-name    "<value-if-set>"  "<default>" \
+	# boolOpttName  --opt2-name   1                 0 \
+	# optWithValue  --val-opt     :                 ""       # : expects 1 arg
+parse_clamity_options "$@"
+eval set -- $PARGS_POSITIONAL     # accomodates '--' for positional args
+# "$@" now represents positional args. CLAMITY_* vars set (and exported)
 
 case "$subcmd" in
 	check) check_os "$@" || exit 1;;
 	pm) power_mgmt "$@" || exit 1;;
-	*) _run_clamity_cmd "$CLAMITY_ROOT/cmds/`basename $0`.d" "$subcmd" "$@" || exit 1;;
+	*) _run_clamity_subcmd "$cmd" "$subcmd" "$@" || _usage "$cmd" "" "$customCmdDesc" ||exit 1;;
 esac
 exit 0

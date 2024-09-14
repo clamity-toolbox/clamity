@@ -3,6 +3,19 @@
 #
 # Supported shells: bash, zsh
 
+# set CLAMITY_ROOT - determine shell compatibility
+[ -z "$CLAMITY_ROOT" ] && [ -n "$BASH_SOURCE" ] && export CLAMITY_ROOT="`dirname $BASH_SOURCE`"
+[ -z "$CLAMITY_ROOT" ] && [ -n "$ZSH_VERSION" ] && setopt function_argzero && export CLAMITY_ROOT="`dirname $0`"
+[ -z "$CLAMITY_ROOT" ] && echo "unsupported shell. maybe try setting CLAMITY_ROOT ?" && return 1
+[ ! -f "$CLAMITY_ROOT/loader.sh" ] && echo "Is CLAMITY_ROOT=$CLAMITY_ROOT correct? loader.sh isn't where it's supposed to be." && return 1
+
+source $CLAMITY_ROOT/lib/_.sh || return 1
+
+[ -n "`_os`" ] || return 1  # unsupported OS
+
+# set CLAMITY_HOME - location of clamity local configuration and working data
+[ -z "$CLAMITY_HOME" ] && export CLAMITY_HOME="$HOME/.clamity"
+
 function clamity {
 	# setup clamity home dir
 	[ ! -d "$CLAMITY_HOME/logs" ] && { mkdir -p "$CLAMITY_HOME/logs" || { echo "cannot create $CLAMITY_HOME/logs" >&2 && return 1; } }
@@ -10,16 +23,6 @@ function clamity {
 	# run a clamity command
 	_run_clamity_cmd "" "$@"
 }
-
-# set CLAMITY_ROOT - where the clamity code is located
-_scriptDir=$(cd `dirname $0` && pwd)
-[ -z "$CLAMITY_ROOT" ] && export CLAMITY_ROOT="$_scriptDir"
-[ "$_scriptDir" != "$CLAMITY_ROOT" ] && echo "loader script location ($_scriptDir) does not match CLAMITY_ROOT ($CLAMITY_ROOT)" >&2 && return 1
-
-source $CLAMITY_ROOT/lib/_.sh || return 1
-
-# set CLAMITY_HOME - location of clamity local configuration and working data
-[ -z "$CLAMITY_HOME" ] && export CLAMITY_HOME="$HOME/.clamity"
 
 _load_clamity_defaults || return 1
 

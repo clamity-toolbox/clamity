@@ -1,22 +1,23 @@
 
-# shell parameter parsing
+# A simple shell options parser that operates on the clamity python option
+# parser's good graces.
 
-# [ -n "$__clammod_options_parser_loaded" ] && return 0 || __clammod_options_parser_loaded=1
+# Provides a relatively easy (limited) way to manage options for shell scripts
+# and the environment w/o having to rely on any particular language's run-time
+# configuration.
+#
+# Also provides basic usage and man page components for creating standard
+# consistant command line help.
 
-# A Simple shell options parser that exists at the clamity python option
-# parser's good graces. It offers a relatively easy (limited) way to create
-# shell scripts for automation w/o having to consider various run-time
-# environments.
-
-# Options are exported as env vars prefixed with 'CLAMITY_', such as:
+# Options are exported as env vars prefixed with 'CLAMITY_', Such as:
 #   CLAMITY_verbose="1"
 #   CLAMITY_optWithValue="sub-value"
 
-# Options are all strings. Those evaluated as boolean use the _is_false
-# shell function as their source of truthiness.
+# Options are all strings. Those evaluated as boolean use the `lib/_.sh : _is_false()`
+# shell function to evaulate truthiness.
 
 # This module contains hard-coded values taken from etc/variables/common.json
-# and so should be kept in sync with that file.
+# and should be kept in sync with that file.
 
 
 
@@ -32,7 +33,7 @@ function _usage {	# standard command usage (see cmds/_templates/)
 	local cmd="$1" subcmd="$2" customCmdDesc="$3"
 	# echo "__usage. cmd=$1 subcmd=$2 customUsage=$3" >&2
 	[ -z "$subcmd" ] && __usage2 "$cmd" "$subcmd" "$customCmdDesc" && return 1
-	# *** command_man_page MUST be defined ***
+	# *** command_man_page MUST be defined by the calling script ***
 	[ "$subcmd" = help ] && __usage2 "$cmd" "$subcmd" "$customCmdDesc" && command_man_page "$cmd" "$customCmdDesc" && return 1
 	return 0
 }
@@ -40,10 +41,11 @@ function _usage {	# standard command usage (see cmds/_templates/)
 function __usage2 {	# generic usage for clamity command
 	local cmd="$1" subcmd="$2" customUsage="$3"
 	# echo "__usage2. cmd=$1 subcmd=$2 customUsage=$3" >&2
+	# `echo $cmd|tr a-z A-Z` SUB-COMMANDS
 	echo "
 	clamity $cmd {sub-command} [options]
 
-`echo $cmd|tr a-z A-Z` SUB-COMMANDS
+SUB-COMMANDS
 
 `_describe_sub_commands $CLAMITY_ROOT/cmds/$cmd.d "$customUsage"`
 "
@@ -126,15 +128,15 @@ function parse_common_options_help {
 "
 }
 
-function _defaults {	# hard coded properties in one place
+function _defaults {	# soure of truth for hard coded properties
 	[ "$1" = DefaultConfigFile ] && echo "$CLAMITY_HOME/config/defaults.env"
 }
 
 __clamity_common_props="verbose dryrun debug quiet yes output_format"
-__clamity_other_props="disable_module_cache"
+__clamity_other_props="disable_module_cache package_manager"
 __clamity_known_props="$__clamity_common_props $__clamity_other_props"
 
-function _clamity_config_options {
+function _print_clamity_config_options {
 	local i
 	for i in `echo $__clamity_known_props`; do echo $i; done | sort
 }
@@ -143,7 +145,28 @@ function _is_known_prop {	# success if property is known
 	echo "$__clamity_known_props" | grep -q "$1"
 }
 
-function __c_array {	# treat a space delimited string as an array
+function _is_one_of {	# success if value($1) is found in the remaining arg list($@)
+	local value="$1" i
+	shift
+	for i in "$@"; do [ "$value" = "$i" ] && return 0; done
+	return 1
+}
+
+function _is_prop_ok {	# validate known properties
+	local prop="$1" value="$2"
+	case "$prop" in
+		package_manager)
+			_is_one_of "$value" port brew yum && _cmd_exists "$value" && return 0
+			_warn "bad package manager: $value. Maybe it's not installed?"
+			;;
+		*)
+			return 0;;
+	esac
+	return 1
+}
+
+# poor man's array object performing an action($1) using a space delimited string for the arrray ($2)
+function __c_array {
 	# echo "__c_array($*)" >&2
 	local action="$1" arrayVar="$2"
 	shift 2
@@ -227,14 +250,13 @@ function setup_clamity_options_parser {	# Prepares the parser and establishes de
 	__set_option_defaults_2 $(__parse_common_options) "$@"
 }
 
-
 function __parse_check_option {
 	[ -n "$2" ] && echo "$2"|grep -vq '^-' && return 0
 	echo "value for $1 is missing" >&2
 	return 1
 }
 
-function parse_clamity_options {
+function parse_clamity_options {	# sets CLAMITY_ vars based on command line args
 	while (( "$#" )); do
 		[ "$1" = "--" ] && shift && break
 		__c_array indexOf PARGS_SWITCHES "$1"
