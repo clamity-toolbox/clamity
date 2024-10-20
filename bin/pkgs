@@ -24,17 +24,17 @@ vscode        visual studio code
 }
 
 function select_pkg_mgr {
-	[ -n "$CLAMITY_package_manager" ] && _cmd_exists $CLAMITY_package_manager && _is_prop_pk package_manager "$CLAMITY_package_manager" && return 0
+	[ -n "$CLAMITY_os_preferred_pkg_mgr" ] && _cmd_exists $CLAMITY_os_preferred_pkg_mgr && _is_prop_pk package_manager "$CLAMITY_os_preferred_pkg_mgr" && return 0
 	case "`_os`" in
 		al2023)
-			_cmd_exists yum && _is_prop_ok package_manager yum && export CLAMITY_package_manager=yum
+			_cmd_exists yum && _is_prop_ok package_manager yum && export CLAMITY_os_preferred_pkg_mgr=yum
 			;;
 		macos)
-			_cmd_exists brew && _is_prop_ok package_manager brew && export CLAMITY_package_manager=brew && return 0
-			_cmd_exists port && _is_prop_ok package_manager port && export CLAMITY_package_manager=port && return 0
+			_cmd_exists brew && _is_prop_ok package_manager brew && export CLAMITY_os_preferred_pkg_mgr=brew && return 0
+			_cmd_exists port && _is_prop_ok package_manager port && export CLAMITY_os_preferred_pkg_mgr=port && return 0
 			;;
 	esac
-	[ -n "$CLAMITY_package_manager" ] && unset CLAMITY_package_manager
+	[ -n "$CLAMITY_os_preferred_pkg_mgr" ] && unset CLAMITY_os_preferred_pkg_mgr
 	_warn "no package manager available"
 	return 1
 }
@@ -46,7 +46,7 @@ function isAbstractedPkg {
 
 function is_installed {
 	local pkg=$1
-	case "$CLAMITY_package_manager" in
+	case "$CLAMITY_os_preferred_pkg_mgr" in
 		yum) rpm --quiet -q $pkg && return 0;;  # pkg is installed
 		*) echo "is_installed() package manager $DT_PKG_MANAGER not supported" && exit 1;;
 	esac

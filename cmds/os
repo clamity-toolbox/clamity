@@ -1,33 +1,50 @@
 #!/usr/bin/env bash
 
-# desc: OS configuration management
+# desc: OS configuration management (include package manager)
 
 source $CLAMITY_ROOT/lib/_.sh || exit 1
 
-function command_man_page {
-	echo "ABSTRACT
-
+# Define the manpage sections
+# ---------------------------
+__Abstract="
 	The OS command is for configuring and managing your local host's
 	operating system.
+"
 
-USAGE
+__Usage="
+	clamity `basename $0` { <sub-command> } [options]
+"
 
-	sub-cmd-a [--opt-a | --opt-name <name> ]
-
-COMMAND OPTIONS
-
+__CommandOptions="
 	--opt-a
 		boolean yes or no
 
 	--opt-name <name>
-		the name of the thing you specifed using --opt-name.
-
-`parse_common_options_help`
-
-EXAMPLES
+ 		the name of the thing you specifed using --opt-name.
 "
-	return 0
-}
+
+__EnvironmentVariables="
+	CLAMITY_os_preferred_pkg_mgr
+		Supported package managers: brew | port | yum | apt
+"
+
+__Examples="
+	This is one way to it
+		ls /tmp
+"
+
+
+# Help for local sub-commands
+# ---------------------------
+# If you define sub-commands in this script or external to the $cmd.d/ dir, add
+# them to 'customCmdDesc'. Note how each command is on its own line prefixed
+# with '\n\t'.
+
+customCmdDesc="
+\n\tcheck - probe OS for config & environment info
+\n\tpm - power management
+"
+
 
 function check_os {
 	for cmd in brew port python3 pip3 aws
@@ -74,23 +91,17 @@ function power_mgmt {
 	esac
 }
 
-# describe sub-commands implemented here (not in external scripts)
-customCmdDesc="
-\n\tcheck - probe OS for config & environment info
-\n\tpm - power management
-"
 
-# Handle usage and command man page
+# Display standard usage and command man page when needed
+# -------------------------------------------------------
 cmd=`basename $0`
-subcmd="$1"
-_usage "$cmd" "$subcmd" "$customCmdDesc" || exit 1
-[ -n "$subcmd" ] && shift
+_usage "$customCmdDesc" "$cmd" "$@" || exit 1
+[ -n "$1" ] && subcmd="$1" && shift || subcmd=""
 
-# Simple shell options parser - includes common options
-# ---------------------------
-# Options are export env vars prefixed with CLAMITY_. eg.
-#   CLAMITY_verbose="1"
-#   CLAMITY_optWithValue="sub-value"
+
+# Use the simple shell options parser which includes common options
+# -----------------------------------------------------------------
+# Options are exported env vars prefixed with CLAMITY_. eg.  CLAMITY_verbose="1"
 setup_clamity_options_parser
 	# optVarName    --opt-name    "<value-if-set>"  "<default>" \
 	# boolOpttName  --opt2-name   1                 0 \
@@ -99,9 +110,10 @@ parse_clamity_options "$@"
 eval set -- $PARGS_POSITIONAL     # accomodates '--' for positional args
 # "$@" now represents positional args. CLAMITY_* vars set (and exported)
 
+
 case "$subcmd" in
 	check) check_os "$@" || exit 1;;
 	pm) power_mgmt "$@" || exit 1;;
-	*) _run_clamity_subcmd "$cmd" "$subcmd" "$@" || _usage "$cmd" "" "$customCmdDesc" ||exit 1;;
+	*) _run_clamity_subcmd "$cmd" "$subcmd" "$@" || _usage "$customCmdDesc" "$cmd" || exit 1;;
 esac
 exit 0

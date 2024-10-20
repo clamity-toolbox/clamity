@@ -7,23 +7,20 @@
 
 source $CLAMITY_ROOT/lib/_.sh || return 1
 
-function _c_config_usage {
-	echo "
-clamity $cmd {sub-command} [options]
+cmd=config
+subcmd="$1"
+[ -n "$subcmd" ] && shift
 
-CONFIG SUB-COMMANDS
 
-	list                        list config variables (sorted)
-	set [default] <prop> <val>  set config variable
-	show [defaults]             report environment and default settings
-	unset [default] <prop>      unset config variable
-"
-}
+# ---------------------------------------------------------------------------
+# Define content for brief help and the manpage for this command. Comment out
+# any that does not apply. The formatting of the strings is important to
+# maintain - shell data handling is simplistic.
+# ---------------------------------------------------------------------------
 
-function _c_config_man_page {
-	_c_config_usage
-	echo "ABSTRACT
-
+# More descriptive overview of the command. Paragraph(s) allowed. This is
+# included on a man page. (REQUIRED)
+__Abstract="
 	The config cmd is where you manage your clamity settings. When
 	you set an option, you define it in your current shell only.
 	When you set it as a default, you set it in your current shell
@@ -32,47 +29,111 @@ function _c_config_man_page {
 
 	Unsetting a variable affects both the current shell and if
 	default is specified, removes the setting accordingly. However,
-	unsetting a variable will _not_ affect other active shells.
-
-USAGE
-
-	list
-	set [ default ] <config-option> <value>
-	show [ defaults ]
-	unst [ default ] <config-option>
-
-SUB-COMMANDS
-
-	list
-		List config options
-
-	set [default] <config-option> <value>
-		Sets the config option accordingly. For booleans, use 0 or 1.
-		With 'default', value will be saved in a file and enabled by
-		default for all clamity sessions.
-
-	show [defaults]
-		Shows current settings (env variables prefixed with CLAMITY_).
-		Add 'defaults' to see what's in your local defaults file.
-
-	unset [default] <config-option>
-		Unsets an option (returning to its built in default state).
-
-EXAMPLES
+	unsetting a variable will _not_ affect other active shells. For
+	this, each shell would have to run 'clamity config reset'.
 "
-	return 0
-}
+
+# one or more lines detailing usage patterns (REQUIRED)
+__Usage="
+	clamity $cmd list
+	clamity $cmd { set | unset } [default] {config-opt} [value]
+	clamity $cmd show [defaults]
+"
+
+# Don't include common options here
+__CommandOptions=""
+# __CommandOptions="
+# 	--opt-a
+# 		No additional arg. boolean. Use _is_true() and _is_false() funcs
+# 		to evaluate.
+#
+# 	--opt-name <name>
+# 		the name of the thing you specifed using --opt-name.
+# "
+
+# For commands that have their own special env vars, inlude this section in
+# the man page.
+__EnvironmentVariables=""
+# __EnvironmentVariables="
+# 	CLAMITY_SHCMD_FEATURE
+# 		This means something to my shell script and is managed by me and
+# 		not the config settings module. Possible values include a, true
+# 		or a bag of potato chips.
+# "
+
+# Optional pre-formatted section inserted towards end before Examples
+__CustomSections="BOOLEAN EVALUATION
+
+	Boolean truthiness defines 'false' as an empty string or a case insensitive
+	match to anything matching to 'n|no|0|null|none|undefined|undef|f|false'.
+	Convention for setting booleans is to set them to a value of 1.
+
+	The 'lib/_.sh:_is_false()' shell function is the source of truth for
+	truthiness.
+
+SUPPORTED SHELLS
+
+	bash, zsh
+"
+# SUB-COMMANDS
+#
+# 	list
+# 		List config options
+#
+# 	set [default] <config-option> <value>
+# 		Sets the config option accordingly. For booleans, use 0 or 1.
+# 		With default, value will be saved in a file and enabled by
+# 		default for all clamity sessions.
+#
+# 	show [defaults]
+# 		Shows current settings (env variables prefixed with CLAMITY_).
+# 		Add 'defaults' to see what's in your local defaults file.
+#
+# 	unset [default] <config-option>
+# 		Unsets an option (returning to its built in default state).
+
+
+# Showing examples for comman tasks proves to be very useful in man pages.
+__Examples="
+	Set verbose on by default (CLAMITY_verbose)
+		clamity config set default verbose 1
+
+	Set debug for my session only (CLAMITY_debug)
+		clamity config set debug 1
+"
+# ---------------------------------------------------------------------------
+
+
+# ---------------------------------------------------------------------------
+# Locally implement sub command help
+#
+# Locally impleneted sub commands are those which aren't implemented as scripts
+# located in the $CLAMITY_ROOT/bin/cmds/<cmd>.d/ directory. In order to add them
+# to the usage and man page output, maintain this variable.
+#
+# Note how each command is on its own line prefixed with '\n\t'.
+
+customCmdDesc="
+\n\tlist - list config variables
+\n\tset - set a config variable
+\n\tshow - report env and default settings
+\n\tunset - unset config variable
+"
+# ---------------------------------------------------------------------------
+
+
+
 
 function _c_show_config_settings {
-	DefaultCfgFile="`_defaults DefaultConfigFile`"
+	DefaultCfgFile="`_defaults DefaultsFile`"
 	[ -z "$1" ] && echo -e "\nEnvironment Variables\n---------------------" && env|grep ^CLAMITY_|sort && return 0
-	[ "$1" = "defaults" -o "$1" = "default" ] || { echo "usage: clamity config show [defaults]" && return 1; }
+	[ "$1" = "defaults" -o "$1" = "default" ] || { _warn "usage: clamity config show [defaults]" && return 1; }
 	[ ! -f "$DefaultCfgFile" ] && echo "No defaults defined" && return 0
 	echo -e "\nDefaults from $DefaultCfgFile:\n---------------------------" && cat $DefaultCfgFile || return 1
 	echo
 }
 
-# very very poor man's file editing - add 'eVar=val' to default config file
+# poor man's file editing - add 'eVar=val' to default config file
 function _c_set_var {
 	local prop="$1" val="$2" setDefault="$3"
 	# echo "export CLAMITY_$prop=\"$val\""
@@ -116,17 +177,10 @@ function _c_unset_var {
 }
 
 function _c_set_config {
-	local DefaultCfgFile="`_defaults DefaultConfigFile`"
-	local setAsDefault=0 UnSet=0
-	# _debug "_c_set_config: $*"
-	# extended 'default' option
-	case "$1" in
-		default)	# set default
-			setAsDefault=1 && shift;;
-		unset)		# unset [default]
-			UnSet=1 && shift
-			[ "$1" = "default" ] && setAsDefault=1 && shift;;
-	esac
+	local DefaultCfgFile="`_defaults DefaultsFile`"
+	[ "$1" = "set" ] && local UnSet=0 || UnSet=1
+	shift
+	[ "$1" = "default" ] && local setAsDefault=1 && shift || local setAsDefault=0
 	local prop="$1" val="$2"
 	# echo "Prop=$prop   val=$val"
 
@@ -140,17 +194,14 @@ function _c_set_config {
 }
 
 
-# Handle usage and command man page
-subcmd="$1"
-[ -z "subcmd" ] && _c_config_usage && return 1
-[ "$subcmd" = help ] && _c_config_man_page && return 1
-shift
+[ -z "$subcmd" ] && { _brief_usage "$customCmdDesc" "$subcmd"; return 1; }
+[ "$subcmd" = help ] && { _man_page "$customCmdDesc" config; return 1; }
 
 # Execute sub-commands
 case "$subcmd" in
 	show) _c_show_config_settings "$@" || return 1;;
-	set|unset) _c_set_config "$@" || return 1;;
+	set|unset) _c_set_config $subcmd "$@" || return 1;;
 	list) _print_clamity_config_options || return 1;;
-	*) _c_config_usage && return 1;;
+	*) _warn "unknown sub-command $subcmd. Try 'help'." && return 1;;
 esac
 return 0

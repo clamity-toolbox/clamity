@@ -1,16 +1,17 @@
-# Clamity - Yet Another Toolkit
+# Clamity Toolbox
 
 _Because tools separate us from the animals._
 
-Clamity was born from my personal journey and approach for providing structure,
-automation and repeatability for CI/CD software development and infrastructure
-operations.
+Yes, another toolbox. Clamity was born from my personal journey and approach for
+providing structure, automation and repeatability for CI/CD software development
+and infrastructure operations.
 
 ## Considerations
 
 * The toolbox favors unix-like operating systems, notably linux and OSX.
 
-* Where the Clamity CLI is concerned, **zsh** or **bash** are supported.
+* Where the Clamity CLI is concerned, **zsh** or **bash** are supported. [Read
+  this brief about working in a shell environment](docs/shell-environment.md).
 
 * Make sure you have a Clamity supported package manager installed on your
   computer and in your search path (`PATH`). Clamity builds on lots of 3rd party
@@ -20,7 +21,8 @@ operations.
   Package managers for macos:
    - [macports](https://macports.org) [`port version`]
    - [Homebrew](https://brew.sh) [`brew --version`]
-  Package managers for supported linux distros:
+
+  Package managers for supported linux distributions:
    - **yum/rpm** for Fedora/CentOS/Red Hat flavors
    - **apt/dpkg** for Ubuntu/Debian flavors
 
@@ -30,27 +32,29 @@ operations.
 ### Install and Load It
 
 1. Clone the repo. It's recommended to use the `ssh` protocol as many of the
-   `clamity` features use that protocol. To do so, you'll need to add your ssh
-   public key to your `github.com` account settings.
+   `clamity` features rely on that protocol. To do so, you'll need to add your
+   ssh public key to your `github.com` account settings.
    ```
-   cd /my/src/tree
+   cd /my/src
    git clone git@github.com:jimmyjayp/clamity
    ```
    Cloning via `https` is fine but eventually you'll want to create one or more
    ssh key pair(s) for yourself; `clamity` can help with that too.
 
 1. The `clamity` command is implemented as a shell function so it needs to be
-   loaded into your shell.
+   loaded into your shell and it will _NOT_ be inherited when launching
+   sub-shells unless you specifically configure your shell for that.
    ```
-   source /my/src/tree/clamity/loader.sh
+   source /my/src/clamity/loader.sh
    ```
 
-1. Consider adding a command in your shell's run-commands file (`~/.bashrc` or
-   `~/.zshrc`) to make it available in all shells you spawn. Add the `--quiet`
-   option to prevent any load-time messages. For exmaple:
+1. Consider adding an alias to your shell's run-commands file (`~/.bashrc` or
+   `~/.zshrc`) to make it available in all shells you spawn. For example:
    ```
-   echo 'source /my/src/tree/clamity/loader.sh --quiet' >> ~/.zshrc
+   echo "alias load-clamity='source /my/src/clamity/loader.sh'" >> ~/.zshrc'
    ```
+   Now for all new shells (not your current one), you'll be able to type
+   `load-clamity` on the command line to load it.
 
 1. To get started, type `clamity` for a brief usage or `clamity help` for more
    detail.
@@ -61,7 +65,7 @@ operations.
 If you want to use `clamity` commands in your scripts or programs, add the
 `clamity/bin` directory to your search path:
 ```
-export PATH=/my/src/tree/clamity/bin:$PATH
+export PATH=/my/src/clamity/bin:$PATH
 ```
 Then you can use the `run-clamity` command. It has the same usage as the
 `clamity` shell function. Note that any sub-commaands which mutate the shell's

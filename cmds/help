@@ -1,42 +1,55 @@
 #!/usr/bin/env bash
 
-source $CLAMITY_ROOT/lib/_.sh || exit 1
-
 # desc: clamity man page
 
-function clamity_usage {
-
-	_echo -e "
-	clamity help
-	clamity { <command> [sub-command] } [options] [positional args]
-
-COMMANDS
-
-`_describe_sub_commands $CLAMITY_ROOT/cmds "$CustomUsage"`
-"
-	return 0
-}
+source $CLAMITY_ROOT/lib/_.sh || exit 1
 
 
-function man_page {
-	# parse_common_options_help
-	_echo "ABSTRACT
+# ---------------------------------------------------------------------------
+# Define content for brief help and the manpage for this command. Comment out
+# any that does not apply. The formatting of the strings is important to
+# maintain - shell data handling is simplistic.
+# ---------------------------------------------------------------------------
 
+# More descriptive overview of the command. Paragraph(s) allowed. This is
+# included on a man page. (REQUIRED)
+__Abstract="
 	clamity is a collection of tools for software development, CI/CD
-	pipeline automation and operations. It also provides an abstracted
+	pipeline automation and operations. The CLI provides an abstracted
 	interface with contextual help to ease the cognative load that comes
-	with this plethora of commands.
+	with the plethora of platform commands.
 
-	clamity is implemented as a shell function and so can manipulate
-	the current shell environment. Use 'run-clamity' if including its
-	commands in scripts. Default settings are stored in a central file,
-	effecting all your shells running clamity.
+	The clamity CLI entry point is implemented as a shell function so it
+	can manipulate the current shell environment. Use 'run-clamity' if
+	including its commands in scripts. Default settings are stored in a
+	file and will apply globally to all your shells running clamity
+	whereas non-default (local) settings apply solely to the one shell.
 
-	All local settings and data are stored in \$CLAMITY_HOME (defaults
-	to \$HOME/.clamity).
+	Local settings and data are stored in \$CLAMITY_HOME (defaults to
+	\$HOME/.clamity).
 
-ENVITONMENT VARIABLES
+	The clamity guides can be found at https://clamity.com/guides/ .
+"
 
+# one or more lines detailing usage patterns (REQUIRED)
+__Usage="
+	clamity help
+	clamity { command [sub-command] [options] [[--] positional args]
+"
+
+# Don't include common options here
+# __CommandOptions="
+# 	--opt-a
+# 		No additional arg. boolean. Use _is_true() and _is_false() funcs
+# 		to evaluate.
+
+# 	--opt-name <name>
+# 		the name of the thing you specifed using --opt-name.
+# "
+
+# For commands that have their own special env vars, inlude this section in
+# the man page.
+__EnvironmentVariables="
 	These are set when clamity is loaded. You can pre-define CLAMITY_HOME
 	if you don't want it to be '\$HOME/.clamity'.
 
@@ -48,21 +61,26 @@ ENVITONMENT VARIABLES
 		and much more. It is created when clamity is loaded for the first
 		time. Unless this variable is set, it will be ~/.clamity/.
 
-	More generally, clamity options are managed using 'clamity config'.
-	Options stored as environment variables that will be prefixed with
-	'CLAMITY_'.
+	CLAMITY_<lower-case-option-name>
+		Clamity options are managed using 'clamity config'. Options are
+		stored as environment variables prefixed with 'CLAMITY_'.
+"
 
-	For variables interpreted as booleans, truthiness defines 'false' as
-	an empty string or a match to 'n|no|0|null|none|undefined|undef|f|false'.
-	The '_is_false' shell function in 'lib/_.sh' is the source of truth for
+# Optional pre-formatted section inserted towards end before Examples
+__CustomSections="BOOLEAN EVALUATION
+
+	Bpolean truthiness defines 'false' as an empty string or a case insensitive
+	match to anything matching to 'n|no|0|null|none|undefined|undef|f|false'.
+	The 'lib/_.sh:_is_false()' shell function is the source of truth for
 	truthiness.
 
 SUPPORTED SHELLS
 
 	bash, zsh
+"
 
-EXAMPLES
-
+# Showing examples for comman tasks proves to be very useful in man pages.
+__Examples="
 	Run 'clamity' or 'clamity help' to get started.
 
 	Update clamity software.
@@ -83,12 +101,8 @@ EXAMPLES
 	stored in \$CLAMITY_HOME/defaults.env.
 
 		clamity config set default verbose 1
-
 "
-	return 0
-}
+# ---------------------------------------------------------------------------
 
-[ "$1" == "--full" ] && [ -n "$2" ] && [ -x "$CLAMITY_ROOT/cmds/$2" -o -x "$CLAMITY_ROOT"/cmds/$2.* ] && { run-clamity $2 help; exit 1; }
-clamity_usage
-[ -n "$1" ] && man_page
+[ -z "$1" ] && _brief_usage "" "clamity" || _usage "" "clamity" help
 exit 1

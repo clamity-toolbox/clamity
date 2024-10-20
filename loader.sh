@@ -14,11 +14,11 @@ source $CLAMITY_ROOT/lib/_.sh || return 1
 [ -n "`_os`" ] || return 1  # unsupported OS
 
 # set CLAMITY_HOME - location of clamity local configuration and working data
-[ -z "$CLAMITY_HOME" ] && export CLAMITY_HOME="$HOME/.clamity"
+[ -z "$CLAMITY_HOME" ] && export CLAMITY_HOME="`_defaults ClamityHome`"
 
 function clamity {
 	# setup clamity home dir
-	[ ! -d "$CLAMITY_HOME/logs" ] && { mkdir -p "$CLAMITY_HOME/logs" || { echo "cannot create $CLAMITY_HOME/logs" >&2 && return 1; } }
+	[ ! -d "$CLAMITY_HOME/logs" ] && { echo "mkdir -p $CLAMITY_HOME/logs" && mkdir -p "$CLAMITY_HOME/logs" || { echo "cannot create $CLAMITY_HOME/logs" >&2 && return 1; } }
 
 	# run a clamity command
 	_run_clamity_cmd "" "$@"

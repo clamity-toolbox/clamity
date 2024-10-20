@@ -6,7 +6,7 @@
 
 # source $CLAMITY_ROOT/lib/_.sh || return 1
 
-# envFile="`_defaults DefaultConfigFile`"
+# envFile="`_defaults DefaultsFile`"
 # _load_clamity_aliases || return 1
 
 # # default envFile is optional

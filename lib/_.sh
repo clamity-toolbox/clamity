@@ -1,7 +1,14 @@
 
 # core clamity shell funcs - must work with supported shells (bash, zsh, ...)
 
-[ -n "$__clammod_loaded" ] && return 0 || __clammod_loaded=1
+function __clamity_lib_cache_enabled {
+	[ -z "$CLAMITY_disable_module_cache" ] && return 0
+	# [ "$CLAMITY_disable_module_cache" -eq 0 ] && echo true || echo false
+	[ "$CLAMITY_disable_module_cache" -eq 0 ]
+}
+
+__clamity_lib_cache_enabled && [ -n "$__clammod_loaded" ] && return 0 || __clammod_loaded=1
+# [ -n "$__clammod_loaded" ] && return 0 || __clammod_loaded=1
 
 source $CLAMITY_ROOT/lib/_/options-parser.sh || return 1
 
@@ -24,13 +31,14 @@ function _clear_clamity_module_cache {	# reload shell libraries upon next run
 # These functions are used by both the main loader.sh and other funcs.
 function _load_clamity_aliases {	# load aliases (user >| default)
 	# load clamity aliases - User Aliases(1) OR Default Aliases(2)
+	local AliasesFile=`_defaults AliasesFile`
 	[ -f "$CLAMITY_HOME/aliases.sh" ] && { source "$CLAMITY_HOME/aliases.sh"; return $?; }
 	# load default aliases
 	source "$CLAMITY_ROOT/etc/aliases.sh" || { _warn "failed to source $CLAMITY_HOME/aliases.sh" && return 1; }
 }
 
 function _load_clamity_defaults {	# load clamity defaults from cfg file
-	local envFile="`_defaults DefaultConfigFile`"
+	local envFile="`_defaults DefaultsFile`"
 	_load_clamity_aliases || return 1
 
 	# default envFile is optional
@@ -40,7 +48,7 @@ function _load_clamity_defaults {	# load clamity defaults from cfg file
 	_set_evars_from_env_file_if_not_set "$envFile" "$CLAMITY_load_defaults_opts"
 }
 
-# the command search path allows for introudcing and 'overloading' commands
+# the command search path allows for 'overloading' (and adding) commands
 function _run_clamity_cmd {	#  sets env and run cmd. search-path:$1 (opt), cmd:$2, args:$@ (opt)
 	local searchPath="$1" cmd="$2"
 	[ -n "$cmd" ] && shift 2 || { [ -n "$searchPath" ] && shift; }
@@ -61,7 +69,7 @@ function _run_clamity_cmd {	#  sets env and run cmd. search-path:$1 (opt), cmd:$
 	for cmdsDir in `echo $searchPath | tr : ' '`
 	do
 		[ -z "$cmd" ] &&  { [ -x "$cmdsDir/help" ] && "$cmdsDir/help"; ec=1; break; }
-		[ "$cmd" = help ] && { [ -x "$cmdsDir/help" ] && "$cmdsDir/help" --full "$@"; ec=1; break; }
+		[ "$cmd" = help ] && { [ -x "$cmdsDir/help" ] && "$cmdsDir/help" help "$@"; ec=1; break; }
 
 		# command names determine how they're executed.
 		# *.sh commands are are sourced into the current shell, not executed.
@@ -69,12 +77,12 @@ function _run_clamity_cmd {	#  sets env and run cmd. search-path:$1 (opt), cmd:$
 		[ -x "$cmdsDir/$cmd" ] && { "$cmdsDir/$cmd" "$@"; ec=$?; break; }
 		[ -x "$cmdsDir/$cmd.py" ] && { $CLAMITY_ROOT/bin/run-py $cmdsDir/$cmd.py "$@"; ec=$?; break; }
 		[ -x "$cmdsDir/$cmd.js" ] && { $CLAMITY_ROOT/bin/run-mode $cmdsDir/$cmd.js "$@"; ec=$?; break; }
-		[ -x "$cmdsDir/$cmd.ts" ] && { $CLAMITY_ROOT/bin/run-node $cmdsDir/$cmd.ts "$@"; ec=$?; break; }
+		# [ -x "$cmdsDir/$cmd.ts" ] && { $CLAMITY_ROOT/bin/run-node $cmdsDir/$cmd.ts "$@"; ec=$?; break; }
 	done
 
 	export PATH="$pathBefore"
 
-	[ $ec -eq -1 ] && echo "unknown: $cmd. Try 'help' instead." >&2
+	[ $ec -eq -1 ] && _error "could not find $cmd. Try 'help' instead." && return 1
 	return $ec
 }
 
@@ -86,11 +94,14 @@ function _run_clamity_subcmd {	# execute subcommand script ... cmd:$1, subcmd:$2
 
 function _run {	# run a command
 	_is_dryrun && { echo DRYRUN: "$@"; return 0; }
-	# send stdout to /dev/null in silent mode
-	_is_debug && _is_quiet && { "$@" >/dev/null; return $?; }
-	# log the command in debug or verbose mode before execution
-	{ _is_debug || _is_verbose; } && echo "$@"
+	# supress stdout if running silent
+	_is_quiet && { "$@" >/dev/null; return $?; }
+	_vecho "$@"
 	"$@"
+}
+
+function _sudo {	# execute command using sudo
+	_run sudo "$@"
 }
 
 function _ask_to_run {	# prompt y/n before executing a command
@@ -99,17 +110,13 @@ function _ask_to_run {	# prompt y/n before executing a command
 	echo "Execute (y/N)? "
 	local ans=""
 	read ans
-	[ "$ans" == y -o "$ans" == yes ] || return 1
+	[ "$ans" = y -o "$ans" = yes ] || return 1
 	"$@"
 }
 
-function _sudo {	# execute command using sudo
-	_run sudo "$@"
-}
-
-function _run_py {	# Run a python script in the clamity environment
-	_run $CLAMITY_ROOT/bin/py-run "$@"
-}
+# function _run_py {	# Run a python script in the clamity environment
+# 	_run $CLAMITY_ROOT/bin/py-run "$@"
+# }
 
 
 
@@ -159,7 +166,7 @@ function _float_gte {  # true of $1 >= $2
 	[ $(echo "$1 >= $2" | bc) -eq 1 ]
 }
 
-function  _opt {   # true if option($1) is in option-string($2)
+function  _opt_is_set {   # true if option($1) is in option-string($2)
 	local option="$1" opts="$2"
 	echo ",$opts," | grep -q "$option"
 }
@@ -168,7 +175,7 @@ function _evar_is_set {		# eval env var; true if defined as non-null string
 	[ -n "`eval echo \$$1`" ]
 }
 
-function _evar_is {		# eval env var to stdout
+function _evar_is {		# eval env var to stdout (eg: h=HOME && echo `_evar_is $h`)
 	eval echo \$$1
 }
 
@@ -176,7 +183,7 @@ function _set_evars_from_env_file_if_not_set {	# set e vars from file ('VAR=VALU
 	local envFile="$1" opts="$2"
 	for _e in `grep = $envFile | grep -v '^#' | cut -f1 -d=`
 	do
-		! _evar_is_set "$_e" || _opt -override "$opts" || continue
+		! _evar_is_set "$_e" || _opt_is_set -override "$opts" || continue
 		grep -q ^$_e= $envFile || continue
 		eval `echo -n "export "; grep ^$_e= $envFile`
 	done
@@ -210,12 +217,12 @@ function _debug {	# report in debug mode
 	return 0
 }
 
-function _echo {	# default output handler
+function _echo {	# default output handler (supressed if running silent)
 	! _is_debug && _is_quiet && return 0
 	echo "$@"
 }
 
-function _vecho {	# output only in verbose or debug modes
+function _vecho {	# output only in verbose or debug modes (and not silent)
 	_is_quiet && return 0
 	{ _is_debug || _is_verbose; } && echo "$@" && return 0
 }
@@ -233,8 +240,8 @@ function _ask {	# prompt($1) for a y/n question and default($2). succes if 'yes'
 }
 
 
-# OS detection and utility funcs
-# ------------------------------
+# Utilities
+# ---------
 function _semver_ge {	# semver (maj.min.patch) compare. True if $1 >= $2
 	local maj1=`echo $1|cut -f1 -d.`
 	local maj2=`echo $2|cut -f1 -d.`
@@ -257,6 +264,9 @@ function _semver_ge {	# semver (maj.min.patch) compare. True if $1 >= $2
 	[ $patch1 -ge $patch2 ]
 }
 
+
+# OS detection and info
+# ---------------------
 function __os_info_via_sw_vers {
 	# Supported:
 	# 	macos        : >= 12
@@ -302,6 +312,7 @@ function _os_arch {	# report host's architecture (arm64, x86_64, ...)
 		al2) uname -m;; # eg. x86_64
 	esac
 }
+
 
 # Poor man's JIT package management
 # ---------------------------------

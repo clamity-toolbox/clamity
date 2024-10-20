@@ -1,22 +1,23 @@
 
-# A simple shell options parser that operates on the clamity python option
-# parser's good graces.
-
 # Provides a relatively easy (limited) way to manage options for shell scripts
-# and the environment w/o having to rely on any particular language's run-time
-# configuration.
+# and the environment so simple tasks can be added to clamity w/o having to rely
+# on any particular language's run-time configuration.
 #
-# Also provides basic usage and man page components for creating standard
-# consistant command line help.
+# Also provides basic usage and man page components for creating consistant
+# command line help.
 
-# Options are exported as env vars prefixed with 'CLAMITY_', Such as:
+# Options are EXPORTED env vars prefixed with 'CLAMITY_', Such as:
 #   CLAMITY_verbose="1"
 #   CLAMITY_optWithValue="sub-value"
 
-# Options are all strings. Those evaluated as boolean use the `lib/_.sh : _is_false()`
-# shell function to evaulate truthiness.
+# Options (shell env vars) are strings. Those evaluated as boolean use the
+# _is_false() shell function in  (lib/_.sh) to evaulate truthiness.
 
-# This module contains hard-coded values taken from etc/variables/common.json
+# clamity has support for groups of options (option groups) which facilitates
+# providing consistency between commands. One group of note, common options,
+# are included by default for all commands. See etc/options/common.sh.
+
+# This libarary contains hard-coded values taken from etc/options/common.json
 # and should be kept in sync with that file.
 
 
@@ -29,43 +30,77 @@
 # Man Pages for commands are implemented as sspecial functions named
 # 'command_man_page' (one per command). See cmds/_templates/shell-command
 
-function _usage {	# standard command usage (see cmds/_templates/)
-	local cmd="$1" subcmd="$2" customCmdDesc="$3"
-	# echo "__usage. cmd=$1 subcmd=$2 customUsage=$3" >&2
-	[ -z "$subcmd" ] && __usage2 "$cmd" "$subcmd" "$customCmdDesc" && return 1
-	# *** command_man_page MUST be defined by the calling script ***
-	[ "$subcmd" = help ] && __usage2 "$cmd" "$subcmd" "$customCmdDesc" && command_man_page "$cmd" "$customCmdDesc" && return 1
-	return 0
-}
-
-function __usage2 {	# generic usage for clamity command
-	local cmd="$1" subcmd="$2" customUsage="$3"
-	# echo "__usage2. cmd=$1 subcmd=$2 customUsage=$3" >&2
-	# `echo $cmd|tr a-z A-Z` SUB-COMMANDS
-	echo "
-	clamity $cmd {sub-command} [options]
-
-SUB-COMMANDS
-
-`_describe_sub_commands $CLAMITY_ROOT/cmds/$cmd.d "$customUsage"`
-"
-}
-
 function __desc_of {	# pull the description of a command from the comment
 	grep '^# desc:' "$1" | cut -f2 -d: | _ltrim
 }
 
-function _describe_sub_commands {	# print cmds desc from dir($1). Includes optional commands($2).
-	local dir="$1" customUsage="$2" subcmd
-	# echo "_describe_sub_commands($*)" >&2
-	[ -n "$customUsage" ] && echo -e $customUsage >/tmp/usage$$ || >/tmp/usage$$
-	for subcmd in $(cd "$dir" && ls); do
-		[ ! -x $dir/$subcmd -o -d $dir/$subcmd ] && continue
-		local dispCmd=$(basename $dir/$subcmd|cut -f1 -d.)
-		local cmdDesc="`__desc_of $dir/$subcmd | _ltrim`"
-		echo -e "\t$dispCmd - $cmdDesc" >>/tmp/usage$$
-	done
-	cat /tmp/usage$$ | grep -v '^$' | sort
+function _usage {	# standard command usage (see cmds/_templates/)
+	local customCmdDesc="$1" cmd="$2" subcmd="$3"
+	[ -z "$subcmd" ] && _brief_usage "$customCmdDesc" "$cmd" "$subcmd" && return 1
+	# shift 3
+	[ "$subcmd" = help ] && __usage_help "$customCmdDesc" "$cmd" "$subcmd" | less && return 1
+	# no usage was required, return success
+	return 0
+}
+
+function _brief_usage {
+	local customCmdDesc="$1" cmd="$2"
+	echo -e "USAGE\n$__Usage"
+	__describe_sub_commands "$customCmdDesc" "$cmd" action
+	return 0
+}
+
+function _sub_man_page {
+	local customCmdDesc="$1" subcmd="$2"
+	__usage_help "$customCmdDesc" "$subcmd" action | less
+}
+
+function _man_page {
+	local customCmdDesc="$1" cmd="$2" flags="$3"
+	__usage_help "$customCmdDesc" "$cmd" "$flags" | less
+}
+
+function __usage_help {
+	local customCmdDesc="$1" cmd="$2" flags="$3"
+	echo -e "USAGE\n$__Usage"
+	echo -e "ABSTRACT\n\t$__Abstract"
+	__describe_sub_commands "$customCmdDesc" "$cmd" "$flags"
+	[ -n "$__CommandOptions" ] && echo -e "COMMAND OPTIONS\n\t$__CommandOptions"
+	echo $flags | grep -q '\-no-common-opts' || _parse_options_help common
+	[ -n "$__CustomSections" ] && echo -e "$__CustomSections"
+	[ -n "$__EnvironmentVariables" ] && echo -e "ENVIRONMENT VARIABLES\n\t$__EnvironmentVariables"
+	[ -n "$__Examples" ] && echo -e "EXAMPLES\n\t$__Examples"
+	return 0
+}
+
+function __describe_sub_commands {	# print cmds descriptions
+	local customUsage="$1"  	# custom string prefixed to sub commands section
+	local cmd="$2"				# usage for this sub command or clamity string for top level
+	local flags="$3"
+	# local formatFor="$3"		# manpage | usage - formats output
+	# local skipFinalEcho="$4"	# true to skip final echo (more formatting)
+	local dir="$CLAMITY_ROOT/cmds/$cmd.d"
+
+	local optsTitlePrefix="SUB-"
+	local optsTitle="COMMANDS"
+	[ "$cmd" = clamity ] && cmd=clamity && dir="$CLAMITY_ROOT/cmds" && optsTitlePrefix=""
+	echo "$flags" | grep -q 'action' && optsTitlePrefix="" && optsTitle="ACTIONS"
+
+	[ -n "$customUsage" ] && echo -e "$customUsage" >/tmp/usage$$ || echo -e "" >/tmp/usage$$
+	if [ -d "$dir" ]; then
+		# pull out the '# desc:' string from all sub-command scripts
+		local _cmd
+		for _cmd in $(cd "$dir" && ls); do
+			[ ! -x $dir/$_cmd -o -d $dir/$_cmd ] && continue
+			local dispCmd=$(basename $dir/$_cmd|cut -f1 -d.)
+			echo -e "\t$dispCmd - `__desc_of $dir/$_cmd`" >>/tmp/usage$$
+		done
+	fi
+	if [ `cat /tmp/usage$$ | grep -v '^$' | wc -l` -gt 0 ]; then
+		echo -e "`echo $cmd | tr '[a-z]' '[A-Z]'` ${optsTitlePrefix}${optsTitle}\n" || echo
+		cat /tmp/usage$$ | grep -v '^$' | sort
+		echo
+	fi
 	/bin/rm -f /tmp/usage$$
 	return 0
 }
@@ -97,44 +132,24 @@ function _describe_sub_commands {	# print cmds desc from dir($1). Includes optio
 #
 # eval set -- ${PARGS_POSITIONAL[@]}
 
-# This should all sync up with etc/variables/common.json.
+source $CLAMITY_ROOT/etc/options/common.sh || return 1
+__clamity_known_props=`__c_opts_common_list`
+
+# This should all sync up with etc/options/*.json.
 # It's probably not tenable
 
-function parse_common_options_help {
-	echo "COMMON OPTIONS
-
-	-d, --debug
-		Debug mode provides additional, lower-level output (CLAMITY_debug=1). Debug
-		messages are sent to stderr.
-
-	-n, --dryrun
-		Allows for execution of a script withot causing an underlying change to whatever
-		data the script affects. It is up to each script to determine what that means.
-		Some scripts do not support dryrun and will terminate immediately if it's enabled
-		(CLAMITY_dryrun=1).
-
-	-of, --ofmt, --output-format <format>
-		Values include 'json', 'table' and 'csv' (CLAMITY_output_format="json").
-
-	-q, --quiet
-		Suppress all reporting except warnings and errors (CLAMITY_quiet=1).
-
-	-v, --verbose
-		Enable extra reporting (CLAMITY_verbose=1).
-
-	-y, --yes
-		Disables interactive mode in which commands that prompt for confirmation before
-		doing things will automatically get answered with 'yes' (CLAMITY_yes=1).
-"
+function _parse_options_help {  # $1 = variable group (common, ...)
+	case "$1" in
+		common) __c_opts_common_help;;
+	esac
+	return 0
 }
 
-function _defaults {	# soure of truth for hard coded properties
-	[ "$1" = DefaultConfigFile ] && echo "$CLAMITY_HOME/config/defaults.env"
+function _defaults {	# source of truth for hard coded properties
+	local x=$(grep ^$1= $CLAMITY_ROOT/etc/options/defaults.sh | cut -d= -f2-)
+	[ -n "$x" ] && eval echo $x
 }
 
-__clamity_common_props="verbose dryrun debug quiet yes output_format"
-__clamity_other_props="disable_module_cache package_manager"
-__clamity_known_props="$__clamity_common_props $__clamity_other_props"
 
 function _print_clamity_config_options {
 	local i
@@ -165,7 +180,7 @@ function _is_prop_ok {	# validate known properties
 	return 1
 }
 
-# poor man's array object performing an action($1) using a space delimited string for the arrray ($2)
+# array object performs an action($1, init|get|add|print|indexOf) on an array($2, space delimited string)
 function __c_array {
 	# echo "__c_array($*)" >&2
 	local action="$1" arrayVar="$2"

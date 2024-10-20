@@ -1,0 +1,112 @@
+#!/usr/bin/env bash
+
+# desc: sub-command template script
+
+source $CLAMITY_ROOT/lib/_.sh || exit 1
+
+cmd="`dirname $0|rev|cut -f1 -d/|rev|cut -f1 -d.`"  # shcmd-template
+subcmd="`basename $0`"                              # subcmd-template
+
+# ---------------------------------------------------------------------------
+# Define content for brief help and the manpage for this command. Comment out
+# any that does not apply. The formatting of the strings is important to
+# maintain - shell data handling is simplistic.
+# ---------------------------------------------------------------------------
+
+# More descriptive overview of the command. Paragraph(s) allowed. This is
+# included on a man page. (REQUIRED)
+__Abstract="
+	This is a template for a sub-command implemented as a script.
+"
+
+# one or more lines detailing usage patterns (REQUIRED)
+__Usage="
+	clamity $cmd $subcmd {action} [options] [[--] positional-args]
+"
+
+# Don't include common options here
+__CommandOptions="
+	--sub-opt-a
+		No additional arg. boolean. Use _is_true() and _is_false() funcs
+		to evaluate.
+
+	--sub-opt-name <name>
+		the name of the thing you specifed using --opt-name.
+"
+
+# For commands that have their own special env vars, inlude this section in
+# the man page.
+__EnvironmentVariables="
+	CLAMITY_SUBCMD_FEATURE
+		This means something to my shell script and is managed by me and
+		not the config settings module. Possible values include a, true
+		or a bag of potato chips.
+"
+
+# Optional pre-formatted section inserted towards end before Examples
+__CustomSections="BOOLEAN EVALUATION
+
+	Boolean truthiness defines 'false' as an empty string or a case insensitive
+	match to anything matching to 'n|no|0|null|none|undefined|undef|f|false'.
+	The 'lib/_.sh:_is_false()' shell function is the source of truth for
+	truthiness.
+"
+
+# Showing examples for comman tasks proves to be very useful in man pages.
+__Examples="
+	Examples for the subcmd template
+		echo hello world
+"
+# ---------------------------------------------------------------------------
+
+
+# ---------------------------------------------------------------------------
+# Add locally impleneted sub commands to usage.
+# Note how each command is on its own line prefixed with '\n\t'.
+
+customCmdDesc="
+\n\tsubtask - do this sub-task
+"
+# ---------------------------------------------------------------------------
+
+
+# If this script help the code to do the sub-command
+function do_sub_task {
+	# return 0 if successful, else 1
+	return 0
+}
+
+
+[ -z "$1" ] && { _brief_usage "$customCmdDesc" "$subcmd"; exit 1; }
+[ "$1" == help ] && { _sub_man_page "$customCmdDesc" "$subcmd"; exit 1; }
+
+# For sub-commands that require actions (sub-sub-commands)
+action="$1" && shift
+
+_debug "cmd=$cmd, subcmd=$subcmd, action=$action"
+
+# Parse shell options setting env vars prefixed with CLAMITY_. For example, this
+# code sets these vars if the options are specified.
+#
+#   CLAMITY_boolOptName="1"               # "0" if '--bool-opt' not set
+#   CLAMITY_optVarName="<value-if-set>"   # "<default>" if '--optVarName' not set
+#   CLAMITY_optWithValue2="<xxxx>"        # "green" if '--optWithValue2 green' else "<default-val>"
+#   CLAMITY_optWithValue="<user-input>"   # "green" if '--optWithVal green' else not set
+setup_clamity_options_parser \
+	boolOpttName  --bool-opt   1                 0 \
+	optVarName    --opt-name   "<value-if-set>"  "<default>" \
+	optWithValue2 --val-opt2   :                 "<default-val>" \
+	optWithValue  --val-opt    :                 ""          # : expects 1 arg
+
+parse_clamity_options "$@"
+eval set -- ${PARGS_POSITIONAL}   # accomodates '--' for positional args
+# "$@" now represents positional args. CLAMITY_* vars set (and exported)
+
+
+# Execute various sub-functions based on sub-command
+case "$action" in
+	# call internally defined functions
+	subtask) do_sub_task "$@" || exit 1;;
+	*) _error "unknown action $action"; exit 1;;
+esac
+exit 0
