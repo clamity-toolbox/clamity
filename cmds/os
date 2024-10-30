@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# desc: OS configuration management (include package manager)
+# desc: OS configuration management (includes package manager)
 
 source $CLAMITY_ROOT/lib/_.sh || exit 1
 

@@ -22,10 +22,18 @@ function update_pip_pkgs {
 }
 
 [ "$1" == 'update' ] && [ ! -d "$CLAMITY_HOME/pyvenv/bin/python3" ] && exit 0 # py not installed
-
-[ ! -d "$CLAMITY_HOME/pyvenv/bin/python3" ] && setup_venv && install_core_modules || exit 1  # install py venv
-[ "$1" == 'install' ] && exit 0  # install only
 [ "$1" == 'update' ] && { update_pip_pkgs; exit $?; }
+
+[ ! -f "$CLAMITY_HOME/pyvenv/bin/python3" ] && { setup_venv && install_core_modules || exit 1; }  # install py venv
+
+[ "$1" == 'install' ] && { [ -z "$2" ] && exit 0 || { pip3 install $2; exit $?; } }
+
+if [ "$1" == 'env' ]; then
+	echo $PATH | grep -q "$CLAMITY_HOME/pyvenv/bin:" || echo "export PATH=\"$CLAMITY_HOME/pyvenv/bin:$PATH\""
+	exit 0
+fi
 
 export PYTHONPATH="$CLAMITY_ROOT/lib/py:$PYTHONPATH"
 _run $CLAMITY_HOME/pyvenv/bin/python3 "$@"
+
+exit 0

@@ -59,8 +59,8 @@ function _run_clamity_cmd {	#  sets env and run cmd. search-path:$1 (opt), cmd:$
 	_is_true $CLAMITY_disable_module_cache && _clear_clamity_module_cache
 
 	# PATH is _not_ used to find clamity top level commands. PATH is restored after each command
-	local pathBefore="$PATH"
-	export PATH="$CLAMITY_ROOT/bin:$CLAMITY_HOME/pyvenv/bin:$PATH"
+	# local pathBefore="$PATH"
+	# export PATH="$CLAMITY_ROOT/bin:$CLAMITY_HOME/pyvenv/bin:$PATH"
 
 	# parse options and set defaults from a file before every command
 	_load_clamity_defaults || { _warn "failed to load defaults & parse opts" >&2 && return 1; }
@@ -80,7 +80,7 @@ function _run_clamity_cmd {	#  sets env and run cmd. search-path:$1 (opt), cmd:$
 		# [ -x "$cmdsDir/$cmd.ts" ] && { $CLAMITY_ROOT/bin/run-node $cmdsDir/$cmd.ts "$@"; ec=$?; break; }
 	done
 
-	export PATH="$pathBefore"
+	# export PATH="$pathBefore"
 
 	[ $ec -eq -1 ] && _error "could not find $cmd. Try 'help' instead." && return 1
 	return $ec

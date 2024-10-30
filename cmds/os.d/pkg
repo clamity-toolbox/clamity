@@ -143,8 +143,16 @@ function is_abstracted_pkg {
 }
 
 function install_abstracted_pkg {
-	echo "installation of abstracted packages not yet implemented"
-	return 1
+	local pkg="$1"
+	case "$pkg" in
+		aws)
+			_run curl "https://awscli.amazonaws.com/AWSCLIV2.pkg" -o "/tmp/AWSCLIV2.pkg"
+			_run sudo installer -pkg /tmp/AWSCLIV2.pkg -target /
+			;;
+		*)
+			_warn "unknown abstracted package: $pkg"; return 1;;
+	esac
+	return 0
 }
 
 

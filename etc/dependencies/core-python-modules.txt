@@ -1,4 +1,3 @@
 # These are installed by `pip` when the python virtual env is first setup.
 
 boto3
-aws
