@@ -1,0 +1,70 @@
+#!/bin/bash
+
+# desc: verify & sync tf code common to all root modules
+
+echo not ready yet
+return 1
+
+TfmOpts="$1"
+shift
+source $TFM_REPO_ROOT/tfm-helper.sh -silent -load-tfm-data || exit 1
+
+# Terraform still requires replication of common infrastructure code
+# such as variable defaults, etc..  tfm has this mechanism to store
+# them in one place and propogate them out.
+
+# for each common file, compare and/or update it in the root module (dirName)
+function check_all_common_files {
+	local rootModuleDir="$1" subCmd="$2"
+	local file="" fileName="" needsCopy=0 fileToCopy="" dest=""
+	for file in `find shared -name '*.tf'`
+	do
+		needsCopy=0
+		fileName="$(basename $file)"
+		if [ ! -f "$rootModuleDir/$fileName" ]; then
+			echo -n "  $fileName is missing."
+			needsCopy=1
+		else
+			if [ `diff $file $rootModuleDir/$fileName|wc -l` -gt 0 ]; then
+				echo -n "  $fileName differs."
+				needsCopy=1
+			else
+				echo -n "  $fileName matches."
+			fi
+		fi
+		_is_opt -use-local-state $TfmOpts && local useLocalState=1 || local useLocalState=0
+		if [ $useLocalState -eq 1 -o \( $needsCopy -eq 1  -a  "$subCmd" == update \) ]; then
+			echo -n "  copying "
+			if [ $useLocalState -eq 1 ] && [ -f "$file-local" ]; then
+				echo -n "for local state: "
+				fileToCopy="$file-local"
+				dest="$rootModuleDir/$fileName"
+			else
+				fileToCopy="${file}"
+				dest="$rootModuleDir"
+			fi
+			echo -n "$fileToCopy -> $dest"
+			cp "$fileToCopy" "$dest" || exit 1
+		fi
+		echo
+	done
+}
+
+[ -z "`_tfm_top_level_directory`" ] && echo "you must run this from within a top-level root modules tree" && exit 1
+[ -d shared ] && { cd shared || exit 1; }
+# [ "$(basename `pwd`)" != shared ] && echo "'tfm shared' commands must be run from the shared/ directory or a top level root" >&2  && exit 1
+[ "$(basename `pwd`)" != shared ] && { cd "$TFM_REPO_ROOT/$TFM_ROOT_MODS/`_tfm_root_mod_relative_path|cut -f1 -d/`/shared" || exit 1; }
+
+subCmd="$1"
+[ -n "$subCmd" -a "$subCmd" != update ] && echo "Invalid 'tfm shared' action. 'update' or 'update -use-local-state'." >&2 && exit 1
+
+echo "Root modules:"
+cd ..  # top-level directory below roots  (dev | prod)
+for main in `find . -name terraform.tf`
+do
+	rootModuleDir="$(dirname $main)"
+	echo "$rootModuleDir:"
+	check_all_common_files $rootModuleDir "$subCmd"
+done
+[ -z "$1" ] && echo -e "\n'tfm shared update' or 'tfm shared update -use-local-state' to distribute files common to all roots"
+exit 0

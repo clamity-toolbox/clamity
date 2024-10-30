@@ -1,0 +1,106 @@
+#!/bin/bash
+
+# desc: Assist importing live resources into a root module's state
+
+echo not ready yet
+return 1
+
+function ask {
+	local ans
+	echo "$@"
+	echo -n "Run (y/N)? "
+	read ans
+	[ "$ans" == yes -o "$ans" == y ] && return 0
+	return 1
+}
+
+function is_in_state {
+	local resource="$1"
+	local resource_4display="`echo $resource | sed -e 's/\\\//g'`"
+	grep -q "^$resource$" $StateList && return 0
+	return 1
+}
+
+function import_if {
+	local resource="$1" id="$2"
+
+	echo $resource | grep -q '\\' && local _resource="`echo $resource | sed -e 's/\\\//g'`" || local _resource="$resource"
+
+	is_in_state "$resource" && echo "$_resource found in state" && return 0
+
+	local cmd="terraform import $_resource $id"
+	_is_opt -yes "$tfmOpts" || { ask $cmd || return 0; }
+	$cmd && ImportCount="`expr $ImportCount + 1`" || return 1
+	# ask $cmd && { $cmd && ImportCount="`expr $ImportCount + 1`" || return 1; }
+	return 0
+}
+
+function lookup {
+	local property="$1" searchOpt="$2"
+	case "$property" in
+		awsAccountNumber)
+			cat $TFM_TOP_LEVEL_DIR/data/core.json | jq -r .awsAccountNumber;;
+		deployedRegions)
+			cat $TFM_TOP_LEVEL_DIR/data/core.json | jq .deployedRegions | jq -r ".[]";;
+		iamPoliciesByRootModule)
+			cat $TFM_TOP_LEVEL_DIR/data/core.json | jq .iamPoliciesByRootModule.$searchOpt | jq -r ".[]";;
+		user_list)
+			cat $TFM_TOP_LEVEL_DIR/data/user.json | jq keys | jq -r '.[]';;
+		user_key)
+			cat $TFM_TOP_LEVEL_DIR/data/user.json | jq -r .$searchOpt.keyName;;
+		shortRegion)
+			cat $TFM_TOP_LEVEL_DIR/data/core.json | jq -r .regionAbbreviations\[\"$searchOpt\"\];;
+	esac
+}
+
+
+tfmOpts="$1"
+shift
+source $TFM_REPO_ROOT/tfm-helper.sh -silent -load-tfm-data || exit 1
+[ -z "$tfmOpts" ] && tfmOpts="-no-opts"
+
+# Is there a smart import script to run?
+[ ! -f ./.tfm.smart-import.sh ] && echo "./.tfm.smart-import.sh not found." >&2 && exit 1
+
+# dump the state
+_is_opt -no-state "$tfmOpts" || {
+	StateList="/tmp/tfm.state.$$"
+	echo -e "Listing state...\n"
+	terraform state list >$StateList || { echo "can't list state" && exit 1; }
+}
+
+# count imports
+ImportCount=0
+
+# run the root module's custom import
+source ./.tfm.smart-import.sh "$@" || { echo -e "\n*** Something didn't work. ***\n" && exit 1; }
+
+# we were victorious
+if [ $ImportCount -gt 0 ]; then
+	echo "
+---------------
+Terraform State
+---------------"
+	terraform state list
+	echo "
+
+************
+
+Terraform doesn't always import all resource properties. For example,
+imported ec2 public ssh keys doesn't actually import the key itself.
+Further, for some resources, tags won't line up exactly. Expect to do
+one 'terraform apply' to align the state with the live resources.
+
+Run a 'terraform plan' now. Review the results _very closely_ before
+running 'apply' (if needed).
+
+************
+
+"
+fi
+
+# cleanup
+echo "Imported resources: $ImportCount"
+_is_opt -no-state "$tfmOpts" || /bin/rm -f $StateList
+
+exit 0

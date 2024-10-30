@@ -91,18 +91,20 @@ function power_mgmt {
 	esac
 }
 
-
-# Display standard usage and command man page when needed
-# -------------------------------------------------------
 cmd=`basename $0`
-_usage "$customCmdDesc" "$cmd" "$@" || exit 1
 [ -n "$1" ] && subcmd="$1" && shift || subcmd=""
 
+# external sub-command
+if [ -x "$CLAMITY_ROOT/cmds/os.d/$subcmd" ]; then
+	_run_clamity_subcmd "$cmd" "$subcmd" "$@"
+	exit $?
+fi
 
 # Use the simple shell options parser which includes common options
 # -----------------------------------------------------------------
 # Options are exported env vars prefixed with CLAMITY_. eg.  CLAMITY_verbose="1"
-setup_clamity_options_parser
+setup_clamity_options_parser \
+	Level1 --level1  1  0
 	# optVarName    --opt-name    "<value-if-set>"  "<default>" \
 	# boolOpttName  --opt2-name   1                 0 \
 	# optWithValue  --val-opt     :                 ""       # : expects 1 arg
@@ -111,9 +113,10 @@ eval set -- $PARGS_POSITIONAL     # accomodates '--' for positional args
 # "$@" now represents positional args. CLAMITY_* vars set (and exported)
 
 
+# internal command
 case "$subcmd" in
 	check) check_os "$@" || exit 1;;
 	pm) power_mgmt "$@" || exit 1;;
-	*) _run_clamity_subcmd "$cmd" "$subcmd" "$@" || _usage "$customCmdDesc" "$cmd" || exit 1;;
+	*) _usage "$customCmdDesc" "$cmd"; exit 1;;
 esac
 exit 0

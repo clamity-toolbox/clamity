@@ -133,6 +133,10 @@ function _c_show_config_settings {
 	echo
 }
 
+function _c_is_var_defaulted {
+	grep -q "^CLAMITY_$1=" $DefaultCfgFile
+}
+
 # poor man's file editing - add 'eVar=val' to default config file
 function _c_set_var {
 	local prop="$1" val="$2" setDefault="$3"
@@ -158,13 +162,12 @@ function _c_set_var {
 
 # remove eVar from default config file
 function _c_unset_var {
-	local prop="$1" setDefault
-	shift
-	[ "$2" = "default" ] && setDefault=1 && shift || setDefault=0
+	local prop="$1" setDefault="$2"
+	_c_is_var_defaulted "$prop" && [ $setDefault -eq 0 ] && echo "$prop has a default setting. Use 'unset default'" && return 1
 	local eVar="CLAMITY_$prop"
 	unset $eVar
 	local rc=0
-	[ -n "`_evar_is $eVar`"] && _error "$eVar still set?" && rc=1
+	[ -n "`_evar_is $eVar`" ] && _error "why is $eVar still set?" && rc=1
 	[ $setDefault -eq 0 ] && return $rc
 
 	if [ -f "$DefaultCfgFile" ]; then
@@ -187,7 +190,7 @@ function _c_set_config {
 	# validate input
 	! _is_known_prop "$prop" && _warn "unknown config property: $prop" && return 1
 	[ $UnSet -eq 1 ] && [ -n "$val" ] && _warn "unset does not accept a value" && return 1
-	[ $UnSet -eq 0 ] && [ -z "$val" ] && _warn "set requires a property and value" && return 1
+	[ $UnSet -eq 0 ] && [ -z "$val" ] && _warn "usage: clamity config set [default] <prop> <val>" && return 1
 
 	[ $UnSet -eq 0 ] && { _c_set_var "$prop" "$val" "$setAsDefault"; return $?; }
 	_c_unset_var "$prop" "$setAsDefault"
@@ -195,12 +198,12 @@ function _c_set_config {
 
 
 [ -z "$subcmd" ] && { _brief_usage "$customCmdDesc" "$subcmd"; return 1; }
-[ "$subcmd" = help ] && { _man_page "$customCmdDesc" config; return 1; }
+[ "$subcmd" = help ] && { _man_page "$customCmdDesc" "$cmd"; return 1; }
 
 # Execute sub-commands
 case "$subcmd" in
 	show) _c_show_config_settings "$@" || return 1;;
-	set|unset) _c_set_config $subcmd "$@" || return 1;;
+	set|unset) _c_set_config "$subcmd" "$@" || return 1;;
 	list) _print_clamity_config_options || return 1;;
 	*) _warn "unknown sub-command $subcmd. Try 'help'." && return 1;;
 esac

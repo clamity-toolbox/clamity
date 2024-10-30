@@ -1,22 +1,29 @@
 
+# !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+# These must be accounted for in options-parser.sh: __parse_common_options()
+# !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
 function __c_opts_common_list {
 	echo "
 
-verbose
-dryrun
 debug
+dryrun
+output_format
 quiet
 yes
-output_format
-output_redirection
-logfile
-disable_module_cache
-os_preferred_pkg_mgr
-cmds_path
+verbose
 
 " | grep -v ^$
 	return 0
 }
+
+# other opts
+# ----------
+# output_redirection
+# logfile
+# disable_module_cache
+# os_preferred_pkg_mgr
+# cmds_path
 
 function __c_opts_common_help {
 	echo "COMMON OPTIONS
@@ -33,9 +40,9 @@ function __c_opts_common_help {
 
 	-of, --output-format { json | text | csv }
 		Specifies format of output where applicable (CLAMITY_output_format). Defaults
-		to text.
+		to json.
 
-	-or { none | log }
+	-or, --output-redirection { none | log }
 		Sets up output redirection. 'none' leaves stdout and stderr untouched (this is
 		the default setting). 'log' captures both stdout and stderr to one log file and
 		sets CLAMITY_logfile to the full path and name of the logfile, using that value

@@ -1,0 +1,207 @@
+#!/bin/bash
+
+# desc: help managing backend state contexts with CI/CD pipeline
+
+echo not ready yet
+return 1
+
+tfmOpts="$1"
+shift
+source $TFM_REPO_ROOT/tfm-helper.sh -silent -load-tfm-data || exit 1
+
+
+function usage {
+	echo "
+USAGE
+
+	tfm mystate [tfm-opts] { clean | empty | shell }
+	tfm mystate [tfm-opts] init { /path/to/exports-sh.tgz | 'local' }
+"
+	[ -z "$1" ] && echo -e "'tfm mystate help' for more.\n" && return
+	echo "
+SYNOPSIS
+
+	Manages remote backend access, by root module, enabling you to
+	run 'terraform' commands locally.
+
+ACTIONS
+
+	clean   Remove all the local data associated with the state, be it
+	        local or remote. Does not affect remote backend states.
+
+	empty	Removes all resources from the state (only from the state,
+	        not the live environment).
+
+	init    (Re)initialize the root module to access the Grand Central
+			managed backend state or setup an empty local state. Using
+	        the GC state requires you download the export-sh.tgz file
+	        from Argo (see REFERENCES below).
+
+	shell   Launch the shell to access the Grand Central managed backend.
+	        This presumes you've already run 'init' and the included aws
+	        access token is still good.
+
+REFERENCE
+
+	How To Access Grand Central managed backends from your repo:
+
+	    https://pages.datanerd.us/site-engineering/nr-platform-docs/grand_central/terraform-deploy-mechanism.html#interacting-with-a-terraform-project-from-your-local-machine
+
+EXAMPLES
+
+	Accessing the Grand Central managed state (repeat for each root modules)
+	---------------------------
+	1. Follow the instructions at the link above to download the export-sh.tgz
+	   file from Argo (for example, to ~/Downloads/export-sh.tgz)
+
+	2. Load the grand central backend access shell and follow the instructions
+	   to initialize the root module.
+
+	       tfm mystate init ~/Downloads/export-sh.tgz
+
+	3. To re-load the access shell using the previously initialized root, run
+	   this command and follow the instructions. If the access token is
+	   expired, you'll need to run steps 1 & 2.
+
+	       tfm mystate shell
+
+"
+}
+
+function clean_state {
+	cmd="/bin/rm -rf ./.terraform ./terraform.tfstate* backend_config.hcl autobackend.tf export.sh"
+	[ "$1" == -force ] && { _tfm_run $DRYRUN $cmd; return $?; }
+	_ask_first $cmd && _tfm_run $DRYRUN $cmd
+}
+
+function export_shell {
+	local thisDir="$(basename `pwd`)"
+	local account=`_tfm_top_level_directory` # dev or prod
+	grep -q "^$thisDir$" ../environment-roots.txt && local state="$thisDir" || local state="$account-$thisDir"
+	(
+		echo "source $TFM_REPO_ROOT/tfm-helper.sh -silent
+export PS1=\"GC State[$state] >> \$PS1\"
+terraform workspace select $state
+-----------------------------------------------------
+
+
+*** Enter ^D to leave this shell when you are done.
+"
+		_tfm_run $DRYRUN ./export.sh
+		echo -e "\nLeaving Grand Central Terraform shell - you're no longer connected to the backend state\n"
+	)
+}
+
+function state_shell {
+	[ ! -f ./export.sh ] && echo "./export.sh not found. Use 'tfm mystate init'" && return 1
+	echo "
+Entering Grand Central Terraform shell for backend access.
+
+*** Copy and paste these command to access the state:
+
+-----------------------------------------------------
+"
+	export_shell
+	return 0
+}
+
+function restore_hcl {
+	local tmpDir="$1"
+	echo "Putting HCL back..."
+	_tfm_run mv $tmpDir/*.tf . || return 1
+	_tfm_run rmdir $tmpDir || return 1
+}
+
+function init_local_state {
+	local tfFile="" tmpDir="__tfm__ignore_this_hcl"
+
+	[ -d $tmpDir ] && { echo "Looks like HCL was left aside." && restore_hcl $tmpDir || return 1; }
+	mkdir $tmpDir || return 1
+
+	echo -e "*** Initializing a local state for this root module ***\n"
+
+	echo -e ">> Replacing common-*.tf files for use with local state.\n"
+	_ask_first "tfm shared update -use-local-state" && { _tfm_run $TFM_REPO_ROOT/.tfm/bin/tfm-shared -use-local-state update || return 1; }
+
+	echo ">> Cleaning pre-existing state..."
+	clean_state -force || { echo "clean state failed" && return 1; }
+
+	echo ">> Moving HCL aside so we can run 'apply' after 'init' to create an empty state file..."
+	for tfFile in *.tf; do
+		[ "$tfFile" == terraform.tf ] && continue
+		echo $tfFile | grep -q ^common- && continue
+		_tfm_run mv $tfFile $tmpDir || return 1
+	done
+
+	echo ">> Initializing root module with no HCL present..."
+	_tfm_run terraform init || return 1
+
+	echo -e "\n>> Running 'apply' to create empty state.
+
+	****************************************************************
+	****************************************************************
+
+	If it asked for confirmation, something is wrong. DON'T SAY YES.
+
+	****************************************************************
+	****************************************************************"
+	_tfm_run terraform apply || return 1
+
+	restore_hcl $tmpDir
+
+	echo ">> Re-initializing root module (now that the HCL is back)..."
+	_tfm_run terraform init || return 1
+
+	echo "
+***  This root module has been configured to use local state and an empty
+***  state file has been created so resources can be imported immediately.
+***
+***  Note that based on your empty state, running 'plan' or 'apply' will
+***  show terrform wanting to create all the resources even if they already
+***  exist.
+***
+***  The ball is in your court as to how to proceed. Don't break anything!
+"
+}
+
+function init_state {
+	[ -z "$1" ] && echo "usage: tfm mystate reinit { <export-sh-tarball> | local }" && return 1
+	[ "$1" == "local" ] && { init_local_state "$@"; return $?; }
+	[ ! -f "$1" ] && echo "$1 not found" && return 1
+	local state_export_shell_file="$1"
+	clean_state -force || { echo "clean state failed" && return 1; }
+	_tfm_run $DRYRUN tar -xzf "$state_export_shell_file" || return 1
+	_tfm_run $DRYRUN chmod +x export.sh || return 1
+	echo "
+Initializing and entering NR Terraform shell for backend access.
+
+*** Copy and paste these commands to access the state:
+
+------------------------------------------------------
+terraform init -backend-config=backend_config.hcl"
+	export_shell
+	_ask_first "/bin/rm $state_export_shell_file" || return 0
+	/bin/rm "$state_export_shell_file"
+}
+
+function empty_state {
+	echo
+	terraform state list|cut -f1 -d\[|sort -u
+	echo
+	_ask_first "terraform state list|cut -f1 -d\[|sort -u | xargs -L 1  terraform state rm" || return 0
+	terraform state list|cut -f1 -d\[|sort -u | xargs -L 1  terraform state rm
+}
+
+_is_opt -dryrun "$tfmOpts" && DRYRUN="-dryrun" || DRYRUN=""
+
+subcmd="$1"
+shift
+case "$subcmd" in
+	clean) clean_state; exit $?;;
+	empty) empty_state "$@"; exit $?;;
+	init) init_state "$@"; exit $?;;
+	shell) state_shell "$@"; exit $?;;
+	help) usage full; exit 1;;
+	*) usage; exit 1;;
+esac
+exit 0

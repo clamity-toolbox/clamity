@@ -9,7 +9,7 @@ source $CLAMITY_ROOT/lib/_.sh || exit 1
 cmd="`dirname $0|rev|cut -f1 -d/|rev|cut -f1 -d.`"  # shcmd-template
 subcmd="`basename $0`"                              # subcmd-template
 
-
+# ------------------------------------------------
 __Abstract="
 	The 'clamity os pkg' module is an abstraction for OS package
 	management. Clamity needs to know which system package manager
@@ -23,17 +23,17 @@ __Abstract="
 	installation and configuration.
 "
 
-# __Usage="
-# 	more usage
-# 	more usage lines
-# "
+__Usage="
+	clamity os pkg abstracted
+	clamity os pkg install <pkg> [...]
+	clamity os pkg installed [--ask-to-install] <pkg> [<pkg> ...]
+"
 
 __CommandOptions="
-	--opt-a
-		boolean yes or no
-
-	--opt-name <name>
-		the name of the thing you specifed using --opt-name.
+	--ask-to-install
+		If a particular command/pkg is not found and a preferred package
+		manager has been set, you will be interactively prompted to install
+		it.
 "
 
 __EnvironmentVariables="
@@ -56,8 +56,60 @@ customCmdDesc=""
 # \n\tcheck - probe OS for config & environment info
 # \n\tpm - power management
 # "
+# ------------------------------------------------
 
 
+
+
+function get_pkg_mgr {
+	[ "$CLAMITY_os_preferred_pkg_mgr" == brew ] && which brew >/dev/null 2>&1 && echo brew && return
+	[ "$CLAMITY_os_preferred_pkg_mgr" == brew ] && _warn "your preferred pkg mgr is homebrew but 'brew' isn't in your search path" && return
+	[ "$CLAMITY_os_preferred_pkg_mgr" == port ] && which port >/dev/null 2>&1 && echo port && return
+	[ "$CLAMITY_os_preferred_pkg_mgr" == port ] && _warn "your preferred pkg mgr is macports but 'port' isn't in your search path" && return
+	[ -n "$CLAMITY_os_preferred_pkg_mgr" ] && _warn "an unsupported package manager has been set ($CLAMITY_os_preferred_pkg_mgr)"
+}
+
+function set_pkg_mgr_to {
+	# _run $CLAMITY_ROOT/bin/run-clamity config set os_preferred_pkg_mgr $1
+	_run $CLAMITY_ROOT/bin/run-clamity config set default os_preferred_pkg_mgr $1
+}
+
+function select_macos_pkg_mgr {
+	which port >/dev/null 2>&1 && local macports=1 || local macports=0
+	which brew >/dev/null 2>&1 && local homebrew=1 || local homebrew=0
+	[ $macports -eq 0  -a  $homebrew -eq 0 ] && echo "Neither homebrew nor macports detected" && return 1
+	[ `expr $macports + $homebrew` -gt 1 ] && echo "several package managers detected"
+	[ $macports -eq 1 ] && _ask "Do you want macports as your default pkg manager (y/N)? " && set_pkg_mgr_to port && return 0
+	[ $homebrew -eq 1 ] && _ask "Do you want homebrew as your default pkg manager (y/N)? " && set_pkg_mgr_to brew && return 0
+	return 1
+}
+
+
+
+# # return the preferred package manager to use (offer to select if need be)
+# function pkg_mgr {
+# 	[ -n "$CLAMITY_os_preferred_pkg_mgr" ] && echo $CLAMITY_os_preferred_pkg_mgr && return
+# 	local os=`_os`
+# 	case "$os" in
+# 		al2)
+# 			set_pkg_mgr_to yum
+# 			;;
+# 		macos)
+# 			select_macos_pkg_mgr
+# 			;;
+# 		*)
+# 			# _error "OS '$os' not supported by pkg manager" && return 1
+# 			return 1
+# 			;;
+# 	esac
+# 	[ -z "$CLAMITY_os_preferred_pkg_mgr" ] && return 1
+# 	# [ -n "$CLAMITY_os_preferred_pkg_mgr" ] && { echo $CLAMITY_os_preferred_pkg_mgr | grep -q '^(brew|port|yum|apt)$' || { _error "pkg manager $CLAMITY_os_preferred_pkg_mgr is not suppoered"; return 1; }}
+# 	echo $CLAMITY_os_preferred_pkg_mgr
+# }
+
+
+
+# ---------- ABSTRACTED PACKAGES
 # pkg | min version | src {python|os} | brief desc
 AbstractedPaackages="
 aws|2|python|aws cli utility
@@ -90,113 +142,104 @@ function is_abstracted_pkg {
 	echo ,$pkg, | egrep -qe ",($_ABSTRACTED_PKGS),"
 }
 
+function install_abstracted_pkg {
+	echo "installation of abstracted packages not yet implemented"
+	return 1
+}
+
+
+
+
 # compare numeric versions using pure shell (blech)
 # strings:   { <num>[.<num>[.<num>[...]]] }
 # returns
 #   1   $1 > $2
 #   2   $2 < $1
 #   0   otherwise
-function compare_software_version {
-	_debug "compare_software_version $1 $2"
-	[[ $1 == $2 ]] && return 0
-	local IFS=.
-	local i ver1=($1) ver2=($2)
-	for ((i=${#ver1[@]}; i<${#ver2[@]}; i++))
-	do
-		ver1[i]=0	# fill empty fields in ver1 with zeros
-	done
-	for ((i=0; i<${#ver1[@]}; i++))
-	do
-		[[ -z ${ver2[i]} ]] && ver2[i]=0	# pad empty fields in ver2 with zeros
-		((10#${ver1[i]} > 10#${ver2[i]})) && return 1
-		((10#${ver1[i]} < 10#${ver2[i]})) && return 2
-	done
-	return 0
-}
+# function compare_software_version {
+# 	_debug "compare_software_version $1 $2"
+# 	[[ $1 == $2 ]] && return 0
+# 	local IFS=.
+# 	local i ver1=($1) ver2=($2)
+# 	for ((i=${#ver1[@]}; i<${#ver2[@]}; i++))
+# 	do
+# 		ver1[i]=0	# fill empty fields in ver1 with zeros
+# 	done
+# 	for ((i=0; i<${#ver1[@]}; i++))
+# 	do
+# 		[[ -z ${ver2[i]} ]] && ver2[i]=0	# pad empty fields in ver2 with zeros
+# 		((10#${ver1[i]} > 10#${ver2[i]})) && return 1
+# 		((10#${ver1[i]} < 10#${ver2[i]})) && return 2
+# 	done
+# 	return 0
+# }
 
-function cmd_version {
-	case "$1" in
-		python3|brew) $cmd --version|awk '{print $2}';;
-		aws) aws --version | awk '{print $2}' | cut -f1 -d/;;
-		port) port version | awk '{print $2}';;
-		*) _error "unknown command"; return 1;;
-	esac
-}
+# function cmd_version {
+# 	case "$1" in
+# 		python3|brew) $cmd --version|awk '{print $2}';;
+# 		aws) aws --version | awk '{print $2}' | cut -f1 -d/;;
+# 		port) port version | awk '{print $2}';;
+# 		*) _error "unknown command"; return 1;;
+# 	esac
+# }
 
-function set_pkg_mgr_to {
-	# _run $CLAMITY_ROOT/bin/run-clamity config set os_preferred_pkg_mgr $1
-	_run $CLAMITY_ROOT/bin/run-clamity config set default os_preferred_pkg_mgr $1
-}
+# function check_cmd_version {
+# 	local cmd="$1"
+# 	local ver=`cmd_version $cmd`
+# 	[ -z "$ver" ] && return 0  # command version not available. Assume ok.
+# 	local minVer=`cmd_min_version $cmd`
+# 	[ -z "$minVer" ] && return 0 # command min version not available. Assume ok.
+# 	compare_software_version $ver $minVer; local rc=$?
+# 	[ $rc -eq 2 ] && _error "command $cmd version ($ver) does not meet minimum version ($minVer)" && return 1
+# 	return 0
+# }
 
-function select_macos_pkg_mgr {
-	which port >/dev/null 2>&1 && local macports=1 || local macports=0
-	which brew >/dev/null 2>&1 && local homebrew=1 || local homebrew=0
-	[ $macports -eq 0  -a  $homebrew=0 ] && echo "Neither homebrew nor macports detected. Sorry." && return 1
-	[ `expr $macports + $homebrew` -gt 1 ] && echo "several package managers detected."
-	[ $macports -eq 1 ] && _ask "Do you want macports as your default pkg manager (y/N)? " && set_pkg_mgr_to port && return 0
-	[ $homebrew -eq 1 ] && _ask "Do you want homebrew as your default pkg manager (y/N)? " && set_pkg_mgr_to brew && return 0
-	return 1
-}
+# function is_cmd_installed {
+# 	local cmd rc=0
+# 	for cmd in "$@"; do
+# 		which $cmd >/dev/null 2>&1 && { check_cmd_version $cmd || rc=1; continue; }
+# 		[ $AskToInstall -eq 1 ] && { install_pkg $cmd || rc=1; }
+# 	done
+# 	return $rc
+# }
 
-# return the preferred package manager to use
-function pkg_mgr {
-	[ -n "$CLAMITY_os_preferred_pkg_mgr" ] && echo $CLAMITY_os_preferred_pkg_mgr && return
-	local os=`_os`
-	case "$os" in
-		al2)
-			set_pkg_mgr_to yum
-			;;
-		macos)
-			select_macos_pkg_mgr
-			;;
-		*)
-			_error "OS '$os' not supported by pkg manager" && return 1
-			;;
-	esac
-	[ -z "$CLAMITY_os_preferred_pkg_mgr" ] && return 1
-	# [ -n "$CLAMITY_os_preferred_pkg_mgr" ] && { echo $CLAMITY_os_preferred_pkg_mgr | grep -q '^(brew|port|yum|apt)$' || { _error "pkg manager $CLAMITY_os_preferred_pkg_mgr is not suppoered"; return 1; }}
-	echo $CLAMITY_os_preferred_pkg_mgr
-}
 
-function install_cmd {
+function install_pkg {
 	local cmd="$1"
-	_ask "Install $cmd (y/N)? "
+	[ -z "$cmd" ] && _error "package missing. don't know what to install." && return 1
+	if [ -z "`get_pkg_mgr`" ]; then
+		echo "no preferred package manager selected."
+		select_macos_pkg_mgr
+		[ -z "`get_pkg_mgr`" ] && return 1
+	fi
+	_ask "Install $cmd (y/N)? " || return 1
 	is_abstracted_pkg "$cmd" && { install_abstracted_pkg "$cmd"; return $?; }
-}
-
-function check_cmd_version {
-	local cmd="$1"
-	local ver=`cmd_version $cmd`
-	[ -z "$ver" ] && return 0  # command version not available. Assume ok.
-	local minVer=`cmd_min_version $cmd`
-	[ -z "$minVer" ] && return 0 # command min version not available. Assume ok.
-	compare_software_version $ver $minVer; local rc=$?
-	[ $rc -eq 2 ] && _error "command $cmd version ($ver) does not meet minimum version ($minVer)" && return 1
+	case "$CLAMITY_os_preferred_pkg_mgr" in
+		port)
+			_run sudo port install $cmd || return 1
+			if [ `port installed | grep " ${cmd}_select "|wc -l` -eq 1 ]; then
+				local whichPort=$(port select --summary|grep "^$cmd "| awk '{$1=$2=""; print $0}'|awk '{print $(NF-1)}')
+				[ -n "$whichPort" ] && _run sudo port select $cmd $whichPort || return 1
+			fi
+			;;
+		brew)
+			_run brew install $cmd || return 1;;
+		*)
+			_error "CLAMITY_os_preferred_pkg_mgr undefined or unknown ($CLAMITY_os_preferred_pkg_mgr)"
+			return 1;;
+	esac
 	return 0
-}
-
-function is_cmd_installed {
-	local cmd rc=0
-	for cmd in "$@"; do
-		which $cmd >/dev/null 2>&1 && { check_cmd_version $cmd || rc=1; continue; }
-		[ $AskToInstall -eq 1 ] && { install_cmd $cmd || rc=1; }
-	done
-	return $rc
 }
 
 function is_pkg_installed {
-	case "`pkg_mgr`" in
-		port)
-			_run port installed active
-			;;
-		*)
-			_error "_is_pkg_installed() doesn't support `pkg_mgr`"
-			return 1
-			;;
-	esac
+	while [ -n "$1" ]; do
+		which "$1" >/dev/null 2>&1 && return 0  # if the command was found, return true regardless of source
+		[ $CLAMITY_AskToInstall -eq 0 ] && return 1
+		install_pkg $1 || return 1
+		shift
+	done
 	return 0
 }
-
 
 [ -z "$1" ] && { _brief_usage "$customCmdDesc" "$subcmd"; exit 1; }
 [ "$1" == help ] && { _sub_man_page "$customCmdDesc" "$subcmd"; exit 1; }
@@ -210,7 +253,7 @@ action="$1" && shift
 # Options are export env vars prefixed with CLAMITY_. eg.
 #   CLAMITY_verbose="1"
 #   CLAMITY_optWithValue="sub-value"
-setup_clamity_options_parser
+setup_clamity_options_parser \
 	AskToInstall    --ask-to-install   1  0
 	# optVarName    --opt-name    "<value-if-set>"  "<default>" \
 	# boolOpttName  --opt2-name   1                 0 \
@@ -221,8 +264,9 @@ eval set -- $PARGS_POSITIONAL     # accomodates '--' for positional args
 
 
 case "$action" in
-	installed) is_pkg_installed "$@"; exit $?;;
 	abstracted) list_abstracted; exit 1;;
+	install) install_pkg "$@"; exit $?;;
+	installed) is_pkg_installed "$@"; exit $?;;
 	*) _error "unknown pkg command ($action)" && run-yadt clamity os pkg && exit 1;;
 esac
 exit 0

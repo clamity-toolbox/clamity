@@ -206,8 +206,9 @@ function __c_array {
 # create the input parameter list to be passed to parse_clamity_options.
 # This is not tenable. Generate something from etc/options/common.json
 function __parse_common_options {
-	local optionDefault optionSwitches optionSetTo
+	local optionDefault optionSwitches optionSetTo opt
 	for opt in $__clamity_known_props; do
+		# echo "opt=$opt" >&2
 		case $opt in
 			verbose|debug|quiet|yes)
 				optionSwitches="-`echo $opt|cut -c1`|--$opt"
@@ -220,11 +221,17 @@ function __parse_common_options {
 				optionSetTo=1
 				;;
 			output_format)
-				optionSwitches="-of|--ofmt|--output-format"
-				optionDefault="table"
+				optionSwitches="-of|--output-format"
+				optionDefault="json"
+				optionSetTo=":"
+				;;
+			output_redirection)
+				optionSwitches="-or|--output-redirection"
+				optionDefault="none"
 				optionSetTo=":"
 				;;
 		esac
+		# echo "$opt $optionSwitches $optionSetTo $optionDefault " >&2
 		echo -n "$opt $optionSwitches $optionSetTo $optionDefault "
 	done
 }
@@ -253,7 +260,7 @@ function __set_option_defaults_2 {
 			__c_array add PARGS_SWITCHES $s
 			__c_array add PARGS_VARNAMES $varName
 			__c_array add PARGS_SWITCHARGS $switchArgOrSetValue
-			[ "$defaultValue" != '-' ] && assignment="$varName='$defaultValue'" && eval $assignment
+			[ "$defaultValue" != '-' ] && assignment="CLAMITY_$varName='$defaultValue'" && eval $assignment
 			# echo "enter" >&2 && read
 		done
 		shift 4
@@ -272,6 +279,7 @@ function __parse_check_option {
 }
 
 function parse_clamity_options {	# sets CLAMITY_ vars based on command line args
+	# echo "parse_clamity_options..." >&2
 	while (( "$#" )); do
 		[ "$1" = "--" ] && shift && break
 		__c_array indexOf PARGS_SWITCHES "$1"

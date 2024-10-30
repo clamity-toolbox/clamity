@@ -231,7 +231,7 @@ function _ask {	# prompt($1) for a y/n question and default($2). succes if 'yes'
 	local prompt="$1" def_ans="$2"
 	local ans=""
 	[ -z "$def_ans" ] && def_ans=n
-	echo -n $prompt
+	echo -n "$prompt"
 	_is_true $CLAMITY_yes && echo "auto-yes" && return 0
 	read ans
 	[ -z "$ans" ] && ans=$def_ans
@@ -322,4 +322,15 @@ function _cmd_exists {
 
 function _cmds_needed {	# verify command dependency
 	_run $CLAMITY_ROOT/bin/run-clamity os pkg installed --ask-to-install "$@"
+}
+
+
+# Git related
+# -----------
+function _git_repo_root {  # find git repo root based on current directory
+	local curDir=`pwd`
+	while [ "$curDir" != "/" -a "$curDir" != "$HOME" ]; do
+		[ -d "$curDir/.git" ] && echo "$curDir" && return
+		curDir="`dirname $curDir`"
+	done
 }

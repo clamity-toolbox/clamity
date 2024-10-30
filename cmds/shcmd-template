@@ -4,8 +4,6 @@
 # desc: Template for typical shell command with sub-commands
 
 source $CLAMITY_ROOT/lib/_.sh || exit 1
-cmd=`basename $0`
-[ -n "$1" ] && subcmd="$1" && shift || subcmd=""
 
 # ---------------------------------------------------------------------------
 # Define content for brief help and the manpage for this command. Comment out
@@ -114,11 +112,16 @@ Positional Args: ""$@"
 # --------------------------------------------------
 
 
+cmd=`basename $0`
+[ -n "$1" ] && subcmd="$1" && shift || subcmd=""
 
-# ----------------------------------------------------------
-# Display standard usage and command man page when requested
-# ----------------------------------------------------------
-_usage "$customCmdDesc" "$cmd" "$subcmd" || exit 1
+# -----------------------------------------------------------------
+# Execute external sub-command
+# -----------------------------------------------------------------
+if [ -x "$CLAMITY_ROOT/cmds/os.d/$subcmd" ]; then
+	_run_clamity_subcmd "$cmd" "$subcmd" "$@"
+	exit $?
+fi
 
 
 # -----------------------------------------------------------------
@@ -138,11 +141,14 @@ eval set -- $PARGS_POSITIONAL     # accomodates '--' for positional args
 # "$@" now represents positional args. CLAMITY_* vars set (and exported)
 
 
+# -----------------------------------------------------------------
+# Execute internal sub-commands
+# -----------------------------------------------------------------
 case "$subcmd" in
 	this) sub_cmd_this "$optA" "$optName" "$@" || exit 1;;
 	that) do_that "$@" || exit 1;;
 	show-opts) report_options; exit 0;;
-	*) _run_clamity_subcmd "$cmd" "$subcmd" "$@" || exit 1;;
+	*) _usage "$customCmdDesc" "$cmd"; exit 1;;
 esac
 
 exit 0
