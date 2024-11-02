@@ -24,7 +24,7 @@ __Abstract="
 "
 
 __Usage="
-	clamity os pkg abstracted
+	clamity os pkg abstracted | selfupdate
 	clamity os pkg install <pkg> [...]
 	clamity os pkg installed [--ask-to-install] <pkg> [<pkg> ...]
 "
@@ -51,11 +51,13 @@ __Examples="
 # them to 'customCmdDesc'. Note how each command is on its own line prefixed
 # with '\n\t'.
 
-customCmdDesc=""
-# customCmdDesc="
-# \n\tcheck - probe OS for config & environment info
-# \n\tpm - power management
-# "
+# customCmdDesc=""
+customCmdDesc="
+\n\tabstracted - list abstracted packages
+\n\tinstall - install packages
+\n\tinstalled - check to see if a package is installed
+\n\tselfupdate - update package manager and packages
+"
 # ------------------------------------------------
 
 
@@ -250,6 +252,21 @@ function is_pkg_installed {
 	return 0
 }
 
+function update_pkg_mgr {
+	[ -z "$CLAMITY_os_preferred_pkg_mgr" ] && _error "preferred_pkg_mgr not set" && return 1
+	case "$CLAMITY_os_preferred_pkg_mgr" in
+		port)
+			_run sudo port selfupdate || return 1
+			_run sudo port upgrade outdated || return 1
+			;;
+		brew)
+			_run brew update || return 1
+			_run brew upgrade || return 1
+			;;
+		*) _error "unknown package manager ($CLAMITY_os_preferred_pkg_mgr)" && return 1;;
+	esac
+}
+
 [ -z "$1" ] && { _brief_usage "$customCmdDesc" "$subcmd"; exit 1; }
 [ "$1" == help ] && { _sub_man_page "$customCmdDesc" "$subcmd"; exit 1; }
 
@@ -276,6 +293,7 @@ case "$action" in
 	abstracted) list_abstracted; exit 1;;
 	install) install_pkg "$@"; exit $?;;
 	installed) is_pkg_installed "$@"; exit $?;;
+	selfupdate) update_pkg_mgr "$@"; exit $?;;
 	*) _error "unknown pkg command ($action)" && run-yadt clamity os pkg && exit 1;;
 esac
 exit 0

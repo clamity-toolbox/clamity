@@ -105,29 +105,37 @@ function update_clamity_tarball_installaton {
 
 function backup_clamity {
 	[ ! -d "$CLAMITY_HOME/backups" ] && { mkdir "$CLAMITY_HOME/backups" || return 1; }
-	pushd "$CLAMITY_ROOT/.." || return 1
-	local rc=0
-	local now=`date +%Y%M%D-%%H%M%S`
 
+	_run pushd "$CLAMITY_ROOT/.." || return 1
+	local rc=0
+	local now=`date +%Y%m%d-%H%M%S`
 	local tarball="clamity-software.$now.tgz"
-	local clamDirName=$(`basename "$CLAMITY_ROOT"`)
+	local clamDirName="$(basename "$CLAMITY_ROOT")"
 	_run tar czpf "$CLAMITY_HOME/backups/$tarball" "$clamDirName" || rc=1
-	popd || rc=1
+	_run popd || rc=1
 
 	[ ! -d "$HOME/.clamity" ] && return $rc
-	pushd "$CLAMITY_HOME" || return 1
+	_run pushd "$CLAMITY_HOME" || return 1
 	tarball="clamity-data.$now.tgz"
-	_run tar --exclude .clamity/backups/ -czpvf .clamity/backups/$tarball .clamity || rc=1
-	popd || rc=1
+	_run tar --exclude backups/ -czpf backups/$tarball . || rc=1
+	_run popd || rc=1
+	[ $rc -eq 0 ] && ls -1 $CLAMITY_HOME/backups/*.$now.*
+	[ $rc -eq 0 ] && _run find $CLAMITY_HOME/backups -type f -mtime +30 -delete
 
 	return $rc
+}
+
+function update_git_installation {
+	cd "$CLAMITY_ROOT" || return 1
+	[ `git status -sb | wc -l` -ne 1 ] && _warn "clamity repo does not look clean" && return 1
+	git pull origin
 }
 
 function _c_update_clamity {
 	_ask "Backup clamity before we begin (Y/n)? " y && { backup_clamity || return 1; }
 	[ -d "$CLAMITY_ROOT/.git" ] && { update_git_installation || return 1; } || { update_tarball_installaton || return 1; }
 	_echo "updating python packages" && _run $CLAMITY_ROOT/bin/run-py update || return 1;
-	_echo "Update package manager (Y/n) " y && echo "can't do that yet"
+	_echo "Update package manager (Y/n) " y && { _run $CLAMITY_ROOT/bin/run-clamity os pkg selfupdate || return 1; }
 	_clear_clamity_module_cache
 }
 
