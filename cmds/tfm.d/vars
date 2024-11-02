@@ -2,7 +2,4 @@
 
 # desc: display and manipulate terraform environment variables
 
-echo not ready yet
-return 1
-
 env | egrep '^(TF_VAR_|CLAMITY_TFM_)'

@@ -226,6 +226,7 @@ function install_pkg {
 		port)
 			_run sudo port install $cmd || return 1
 			if [ `port installed | grep " ${cmd}_select "|wc -l` -eq 1 ]; then
+				# for packages that utilize 'port select', select the most recent
 				local whichPort=$(port select --summary|grep "^$cmd "| awk '{$1=$2=""; print $0}'|awk '{print $(NF-1)}')
 				[ -n "$whichPort" ] && _run sudo port select $cmd $whichPort || return 1
 			fi

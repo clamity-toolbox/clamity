@@ -1,5 +1,5 @@
 
-# desc: manage clamity configuration settings
+# desc: mutate the shell's environment
 
 # THIS FILE IS SOURCED INTO AND THEREFORE MUTATES THE CURRENT SHELL
 
@@ -95,7 +95,7 @@ customCmdDesc=""
 
 # Execute sub-commands
 case "$subcmd" in
-	add-python) eval `$CLAMITY_ROOT/bin/run-py env`;;
+	add-python) eval `$CLAMITY_ROOT/bin/run-py venv`;;
 	*) _warn "unknown sub-command $subcmd. Try 'help'." && return 1;;
 esac
 return 0

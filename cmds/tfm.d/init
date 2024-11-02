@@ -2,23 +2,8 @@
 
 # desc: overload the TF init sub-command to support access to the state
 
-echo "not ready yet. Parms: $*"
-return 1
+[ `ls ../*.tfbackend 2>/dev/null|wc -l` -gt 1 ] && _error "multiple ../*.tfbackend files found. don't know which to use" && return 1
 
-# function dryrun {
-# 	echo "$*" | grep -q '\-dryrun' && { echo "DRYRUN: $*" | sed -e 's/-dryrun//'; return 0; }
-# 	_tfm_run_for_region "$@"
-# }
-
-# tfmOpts="$1"
-# shift
-
-# [ -z "$1" ] && echo "missing sub command" >&2 && { echo "Is TFM_REPO_ROOT defined?" >&2; exit 1; }
-# execCmd="$1"
-# shift
-
-# source $TFM_REPO_ROOT/tfm-helper.sh -silent -load-tfm-data || exit 1
-
-[ -z "$TF_VAR_region" ] && echo "region not set. Type: export TF_VAR_region=<aws-region>" && exit 1
-# dryrun terraform $execCmd -backend-config=$TFM_REPO_ROOT/$TFM_ROOT_MODS/$(_tfm_top_level_directory)/backend-states/$TF_VAR_region.s3.tfbackend -force-copy "$@"
-dryrun terraform $execCmd -backend-config=$TFM_REPO_ROOT/$TFM_ROOT_MODS/$(_tfm_top_level_directory)/backend-states/$TF_VAR_region.s3.tfbackend "$@"
+_backendCfg="`ls ../*.tfbackend`"
+[ -n "$_backendCfg" ] && _tfArgs="-backend-config=$_backendCfg" || _tfArgs=""
+_run terraform init $_tfArgs "$@"

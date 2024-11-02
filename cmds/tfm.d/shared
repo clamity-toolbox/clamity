@@ -3,7 +3,7 @@
 # desc: verify & sync tf code common to all root modules
 
 echo not ready yet
-return 1
+exit 1
 
 TfmOpts="$1"
 shift

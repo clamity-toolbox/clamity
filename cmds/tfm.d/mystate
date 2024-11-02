@@ -3,7 +3,7 @@
 # desc: help managing backend state contexts with CI/CD pipeline
 
 echo not ready yet
-return 1
+exit 1
 
 tfmOpts="$1"
 shift

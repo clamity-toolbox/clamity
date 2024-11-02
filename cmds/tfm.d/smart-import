@@ -3,7 +3,7 @@
 # desc: Assist importing live resources into a root module's state
 
 echo not ready yet
-return 1
+exit 1
 
 function ask {
 	local ans

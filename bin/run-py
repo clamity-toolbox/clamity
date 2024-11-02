@@ -1,9 +1,17 @@
 #!/usr/bin/env bash
 
 # clamity python scripts are executed in their own virtual environment and find
-# the clamity python module via $PYTHONPATH (not pip).
+# the clamity python module via $PYTHONPATH.
 
 source $CLAMITY_ROOT/lib/_.sh || return 1
+
+function usage {
+	echo "
+	run-py update | install [<py-pkg>]   # update or install python environ or python pkg
+	eval \`run-py venv\`                   # add clamity's python venv to your search path
+	run-py <py-script>                   # run a python script in clamity's venv
+"
+}
 
 function setup_venv {
 	_cmds_needed python3 || return 1
@@ -21,6 +29,8 @@ function update_pip_pkgs {
 	_run $CLAMITY_HOME/pyvenv/bin/pip3 update pip || return 1
 }
 
+[ -z "$1" ] && usage && exit 1
+
 [ "$1" == 'update' ] && [ ! -d "$CLAMITY_HOME/pyvenv/bin/python3" ] && exit 0 # py not installed
 [ "$1" == 'update' ] && { update_pip_pkgs; exit $?; }
 
@@ -28,7 +38,7 @@ function update_pip_pkgs {
 
 [ "$1" == 'install' ] && { [ -z "$2" ] && exit 0 || { pip3 install $2; exit $?; } }
 
-if [ "$1" == 'env' ]; then
+if [ "$1" == 'venv' ]; then
 	echo $PATH | grep -q "$CLAMITY_HOME/pyvenv/bin:" || echo "export PATH=\"$CLAMITY_HOME/pyvenv/bin:$PATH\""
 	exit 0
 fi

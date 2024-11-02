@@ -225,7 +225,7 @@ tfmRepo=1
 _TFM_OPTIONS=""  # global, not exported
 # _parse_opts "$@" # sets _TFM_OPTIONS; does not change command line
 
-[ -x "$CLAMITY_ROOT/cmds/tfm.d/$subcmd" ] && { "$CLAMITY_ROOT/.tfm/bin/$subcmd" "$_TFM_OPTIONS" "$@"; return $?; }
+[ -x "$CLAMITY_ROOT/cmds/tfm.d/$subcmd" ] && { "$CLAMITY_ROOT/cmds/tfm.d/$subcmd" "$_TFM_OPTIONS" "$@"; return $?; }
 
 _echo "passing command thru to terraform..."
 _run terraform "$subcmd" "$@"
