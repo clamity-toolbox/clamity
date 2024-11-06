@@ -37,7 +37,7 @@ __Abstract="
 
 # one or more lines detailing usage patterns (REQUIRED)
 __Usage="
-	clamity $cmd { mystate | shared | vars | smart-import } [options]
+	clamity $cmd { mystate | apply | common | vars | smart-import } [options]
 	clamity $cmd { terraform-cmd-and-args }
 "
 
@@ -48,7 +48,7 @@ __CommandOptions="
 
 MORE
 
-	The 'shared' subcommand syncs the code residing in the lib/ directory
+	The 'common' subcommand syncs the code residing in the lib/ directory
 	across all participating root modules. You can opt-in on a file-by-file
 	basis simply by keeping a copy of the file with the same name within
 	the root module directory. This	mechanism solves the problem whereby
@@ -98,7 +98,7 @@ FILES
 		<top-dir> (eg. dev or prod)-specific variables such as account,
 		user list, etc.. used to support imports and other conveniences.
 		This file needs to be kept in sync with the values in the
-		<top-dir>/shared/common-variables.tf file.
+		<top-dir>/common/common-variables.tf file.
 		Optional. Should be committed.
 "
 
@@ -110,7 +110,7 @@ __Examples="
 		A 'terraform.tf' file in a directory under \$TFM_REPO_ROOT/roots/
 		designates a module root.
 
-		clamity tfm shared
+		clamity tfm common
 
 	Initializing Pre-canned State Configurations
 
@@ -144,65 +144,6 @@ customCmdDesc=""
 
 
 
-function _tfm_is_opt {
-	local opt="$1"
-	shift
-	[ -z "$1" ] && local optString="$_TFM_OPTIONS" || local optString="$*"
-	echo "$optString" | grep -q \\"$opt"
-}
-
-function _tfm_set_options {
-	# accomodate ',' delimited option list inside one arg
-	local o
-	for o in `echo "$1" | tr , ' '`; do
-		_TFM_OPTIONS="$_TFM_OPTIONS${o},"
-	done
-}
-
-function _parse_opts {
-	local o
-	for o in "$@"; do
-		# echo "Parsing $o"
-		echo "$o"|grep -q "^-" && _tfm_set_options "$o"
-	done
-}
-
-function _ask_first {
-	local ans
-	echo "$@"
-	echo -n "Run (y/N)? "
-	read ans
-	[ \( "$ans" = y -o "$ans" = yes \) ] && return 0
-	return 1
-}
-
-function _tfm_run {
-	# expect the first arg to contain options like dryrun
-	_tfm_is_opt -dryrun "$@" && { local dryrun="DRYRUN" && shift; } || local dryrun="CMD"
-	echo -e "\n$dryrun [`_tfm_root_mod_relative_path`] >" "$@"
-	echo
-	[ "$dryrun" = "DRYRUN" ] && return 0
-	"$@"
-}
-
-function _tfm_run_for_region {
-	[ -n "$TF_VAR_region" ] && local region="$TF_VAR_region" || local region="undefined region"
-	echo -e "\nCMD [`_tfm_root_mod_relative_path` : $region] >" "$@"
-	echo
-	"$@"
-}
-
-# eg. dev/shared
-function _tfm_root_mod_relative_path {
-	[ -z "$1" ] && local dir="`pwd`" || local dir="$1"
-	echo $dir | sed "s|^$TFM_REPO_ROOT/$TFM_ROOT_MODS/||"
-}
-
-# print the top level directory under $TFM_ROOT_MODS/ (eg. dev | prod)
-function _tfm_top_level_directory {
-	echo `_tfm_root_mod_relative_path` | cut -f1 -d/
-}
-
 [ -z "$subcmd" ] && { _brief_usage "$customCmdDesc" "$subcmd"; return 1; }
 [ "$subcmd" = help ] && { _man_page "$customCmdDesc" "$cmd"; return 1; }
 
@@ -210,41 +151,20 @@ _cmd_exists terraform || _warn "terraform command not found"
 _cmds_needed terraform || { _error "unable to run terraform"; return 1; }
 
 TFM_REPO_ROOT="`_git_repo_root`"
+TFM_OPTIONS=""
 tfmRepo=1
 [ -f "$TFM_REPO_ROOT/.clamity/config/settings.sh" ] && grep -q '^terraform_repo=1$' "$TFM_REPO_ROOT/.clamity/config/settings.sh" || tfmRepo=0
 [ -z "$TFM_REPO_ROOT"  -o  $tfmRepo -eq 0 ] && echo "this does not look like a clamity compatible terraform repo" && return 1
 
-# [ "$subcmd" = cd -a "$1" = roots ] && { _tfm_run cd $TFM_REPO_ROOT/$TFM_ROOT_MODS; return $?; }
-# [ "$subcmd" = cd -a "$1" = modules ] && { _tfm_run cd $TFM_REPO_ROOT/modules; return $?; }
+if [ -x "$CLAMITY_ROOT/cmds/tfm.d/$subcmd" ]; then
+	export TFM_REPO_ROOT="$TFM_REPO_ROOT"
+	export TFM_OPTIONS="$TFM_OPTIONS"
+	"$CLAMITY_ROOT/cmds/tfm.d/$subcmd" "$@"
+	rc=$?
+	unset TFM_REPO_ROOT TFM_OPTIONS
+	return $rc
+fi
 
-# intercept and embelish terraform these sub-commands
-# echo ",init," | grep -q $subcmd && { "$CLAMITY_ROOT/cmds/tfm.d/exec" "$@"; return $?; }
-
-# [ -z "`_tfm_top_level_directory`" ] && unset TFM_TOP_LEVEL_DIR || export TFM_TOP_LEVEL_DIR="$TFM_REPO_ROOT/$TFM_ROOT_MODS/`_tfm_top_level_directory`"
-
-_TFM_OPTIONS=""  # global, not exported
-# _parse_opts "$@" # sets _TFM_OPTIONS; does not change command line
-
-[ -x "$CLAMITY_ROOT/cmds/tfm.d/$subcmd" ] && { "$CLAMITY_ROOT/cmds/tfm.d/$subcmd" "$_TFM_OPTIONS" "$@"; return $?; }
-
-_echo "passing command thru to terraform..."
+_vecho "passing command thru to terraform..."
 _run terraform "$subcmd" "$@"
-
 return $?
-
-# # This repo is where?
-# [ -z "$TFM_REPO_ROOT" ] && [ -n "$BASH_SOURCE" ] && export TFM_REPO_ROOT="`dirname $BASH_SOURCE`"
-# [ -z "$TFM_REPO_ROOT" ] && [ -n "$ZSH_VERSION" ] && setopt function_argzero && export TFM_REPO_ROOT="`dirname $0`"
-# [[ "$TFM_REPO_ROOT" == .* ]] && export TFM_REPO_ROOT=`cd $TFM_REPO_ROOT && pwd`
-# [ -z "$TFM_REPO_ROOT" ] && echo "unsupported shell. maybe try setting TFM_REPO_ROOT ?" && return 1
-# [ ! -f "$TFM_REPO_ROOT/tfm-helper.sh" ] && echo "Is TFM_REPO_ROOT=$TFM_REPO_ROOT correct?  tfm-helper.sh isn't where it should be." && return 1
-
-# # Where root terraform modules are stored
-# [ -z "$TFM_ROOT_MODS" ] && export TFM_ROOT_MODS=roots
-
-# _tfm_is_opt -load-tfm-data "$*" && [ -f "$TFM_REPO_ROOT/.tfm.local.sh" ] && { source "$TFM_REPO_ROOT/.tfm.local.sh" || return 1; }
-# _tfm_is_opt -load-tfm-data "$*" && [ -f "$TFM_REPO_ROOT/$TFM_ROOT_MODS/`_tfm_top_level_directory`/.tfm.sh" ] && { source "$TFM_REPO_ROOT/$TFM_ROOT_MODS/`_tfm_top_level_directory`/.tfm.sh" || return 1; }
-# _tfm_is_opt -load-tfm-data "$*" && [ -f .tfm.sh ] && echo "sourcing ./.tfm.sh" && { source .tfm.sh || return 1; }
-# _tfm_is_opt -silent "$*" || echo "terraform wrapper func loaded. Type 'tfm'"
-
-# return 0

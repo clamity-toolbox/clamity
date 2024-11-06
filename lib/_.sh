@@ -33,8 +33,6 @@ function _load_clamity_aliases {	# load aliases (user >| default)
 	# load clamity aliases - User Aliases(1) OR Default Aliases(2)
 	local AliasesFile=`_defaults AliasesFile`
 	[ -f "$CLAMITY_HOME/aliases.sh" ] && { source "$CLAMITY_HOME/aliases.sh"; return $?; }
-	# load default aliases
-	source "$CLAMITY_ROOT/etc/aliases.sh" || { _warn "failed to source $CLAMITY_HOME/aliases.sh" && return 1; }
 }
 
 function _load_clamity_defaults {	# load clamity defaults from cfg file

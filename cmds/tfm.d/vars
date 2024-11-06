@@ -1,5 +1,5 @@
 #!/bin/bash
 
-# desc: display and manipulate terraform environment variables
+# desc: display terraform environment variables
 
-env | egrep '^(TF_VAR_|CLAMITY_TFM_)'
+env | egrep '^(TF_VAR_|TFM_)'

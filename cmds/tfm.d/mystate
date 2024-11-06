@@ -121,7 +121,7 @@ function init_local_state {
 	echo -e "*** Initializing a local state for this root module ***\n"
 
 	echo -e ">> Replacing common-*.tf files for use with local state.\n"
-	_ask_first "tfm shared update -use-local-state" && { _tfm_run $TFM_REPO_ROOT/.tfm/bin/tfm-shared -use-local-state update || return 1; }
+	_ask_first "tfm common update -use-local-state" && { _tfm_run $TFM_REPO_ROOT/.tfm/bin/tfm-shared -use-local-state update || return 1; }
 
 	echo ">> Cleaning pre-existing state..."
 	clean_state -force || { echo "clean state failed" && return 1; }

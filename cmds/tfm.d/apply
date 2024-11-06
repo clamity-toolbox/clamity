@@ -1,0 +1,14 @@
+#!/bin/bash
+
+# desc: overload the TF apply sub-command to record results
+
+source $CLAMITY_ROOT/lib/_.sh || exit 1
+
+function record_results {
+	_echo "Creating OUTPUT.json and STATE.md"
+	_run terraform output -json | jq .props.value >OUTPUT.json
+	echo -e "# Terraform State List\n" >STATE.md
+	_run terraform state list >>STATE.md
+}
+
+_run terraform apply "$@" && record_results

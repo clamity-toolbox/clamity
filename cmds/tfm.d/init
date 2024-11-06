@@ -2,6 +2,8 @@
 
 # desc: overload the TF init sub-command to support access to the state
 
+source $CLAMITY_ROOT/lib/_.sh || exit 1
+
 [ `ls ../*.tfbackend 2>/dev/null|wc -l` -gt 1 ] && _error "multiple ../*.tfbackend files found. don't know which to use" && return 1
 
 _backendCfg="`ls ../*.tfbackend`"

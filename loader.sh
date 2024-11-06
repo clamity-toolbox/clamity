@@ -16,16 +16,15 @@ source $CLAMITY_ROOT/lib/_.sh || return 1
 # set CLAMITY_HOME - location of clamity local configuration and working data
 [ -z "$CLAMITY_HOME" ] && export CLAMITY_HOME="`_defaults ClamityHome`"
 
-function clamity {
-	# setup clamity home dir
-	[ ! -d "$CLAMITY_HOME/logs" ] && { echo "mkdir -p $CLAMITY_HOME/logs" && mkdir -p "$CLAMITY_HOME/logs" || { echo "cannot create $CLAMITY_HOME/logs" >&2 && return 1; } }
-
-	# run a clamity command
-	_run_clamity_cmd "" "$@"
-}
+# setup clamity home dir
+[ ! -d "$CLAMITY_HOME" ] && { _run cp -rp "$CLAMITY_ROOT/etc/skel/clamity-home" "$CLAMITY_HOME" || { echo "cannot create $CLAMITY_HOME" >&2 && return 1; } }
 
 _load_clamity_defaults || return 1
 
-echo $* | grep -q '\--quiet' || echo "Type 'clamity' for usage, 'clamity help' for more."
+# run a clamity command
+function clamity {
+	_run_clamity_cmd "" "$@"
+}
 
+echo $* | grep -q '\--quiet' || echo "Type 'clamity' for usage, 'clamity help' for more."
 return 0

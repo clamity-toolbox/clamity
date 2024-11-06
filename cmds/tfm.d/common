@@ -1,0 +1,56 @@
+#!/bin/bash
+
+# desc: verify & sync tf code common to all root modules
+
+source $CLAMITY_ROOT/lib/_.sh || exit 1
+
+# return 0 if files are in sync
+function check_all_common_files_in_module {
+	local rootModuleDir="$1" action="$2"
+
+	pushd "$rootModuleDir" >/dev/null
+	[ `ls common-*.tf 2>/dev/null|wc -l` -eq 0 ] && popd >/dev/null && return 0  # no common files present
+	local commonDir="$(cd ../../common && pwd)"
+	local file fileToCopy=""
+
+	for file in common-*.tf; do
+		[ ! -f "$commonDir/$file" ] && echo "    $commonDir/$file not found (remove 'common-' from this file name)" && continue
+		[ `diff $file "$commonDir/$file" | wc -l` -eq 0 ] && echo "    $file ok" && continue
+		echo "    $file differs" && filesToCopy="$filesToCopy $file"
+	done
+
+	for file in "$commonDir"/common-*.tf; do [ ! -f "`basename $file`" ] && echo "    $(basename $file) not present"; done
+
+	[ -z "$action" ] && popd >/dev/null && { [ -z "$filesToCopy" ] && return 0 || return 1; }
+	for file in $filesToCopy; do
+		echo "    updating $file"
+		cp "$commonDir/$file" . || return 1
+	done
+	popd >/dev/null
+	return 0
+}
+
+function iterate_through_common_files {
+	local action="$1"
+	local state_group root_mod rc=0
+	# echo "TFM_REPO_ROOT=$TFM_REPO_ROOT"
+	for state_group in $(cd "$TFM_REPO_ROOT/state-groups" && ls); do
+		[ ! -d "$TFM_REPO_ROOT/state-groups/$state_group" -o $state_group == common ] && continue
+		echo -e "\nState Group: $state_group"
+		for root_mod in $(cd "$TFM_REPO_ROOT/state-groups/$state_group" && ls); do
+			[ ! -d "$TFM_REPO_ROOT/state-groups/$state_group/$root_mod" ] && continue
+			echo -e "\n  Root Module: $root_mod"
+			check_all_common_files_in_module "$TFM_REPO_ROOT/state-groups/$state_group/$root_mod" $action || rc=1
+		done
+	done
+	return $rc
+}
+
+[ -z "$1" ] && { iterate_through_common_files; exit $?; }
+
+[ ! -f ../../common/common-providers.tf ] && _warn "you must run this command from within a root module directory" && exit 1
+
+[ "$1" == update ] && { iterate_through_common_files update; exit $?; }
+
+echo "usage: clamity tfm common [update]"
+exit 1
