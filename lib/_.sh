@@ -73,7 +73,7 @@ function _run_clamity_cmd {	#  sets env and run cmd. search-path:$1 (opt), cmd:$
 		# *.sh commands are are sourced into the current shell, not executed.
 		[ -f "$cmdsDir/$cmd.sh" ] && { source "$cmdsDir/$cmd.sh" "$@"; ec=$?; break; }
 		[ -x "$cmdsDir/$cmd" ] && { "$cmdsDir/$cmd" "$@"; ec=$?; break; }
-		[ -x "$cmdsDir/$cmd.py" ] && { $CLAMITY_ROOT/bin/run-py $cmdsDir/$cmd.py "$@"; ec=$?; break; }
+		[ -x "$cmdsDir/$cmd.py" ] && { $CLAMITY_ROOT/bin/clam-py $cmdsDir/$cmd.py "$@"; ec=$?; break; }
 		[ -x "$cmdsDir/$cmd.js" ] && { $CLAMITY_ROOT/bin/run-mode $cmdsDir/$cmd.js "$@"; ec=$?; break; }
 		# [ -x "$cmdsDir/$cmd.ts" ] && { $CLAMITY_ROOT/bin/run-node $cmdsDir/$cmd.ts "$@"; ec=$?; break; }
 	done

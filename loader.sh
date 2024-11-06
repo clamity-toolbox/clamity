@@ -10,6 +10,7 @@
 [ ! -f "$CLAMITY_ROOT/loader.sh" ] && echo "Is CLAMITY_ROOT=$CLAMITY_ROOT correct? loader.sh isn't where it's supposed to be." && return 1
 
 source $CLAMITY_ROOT/lib/_.sh || return 1
+echo "$PATH" | grep -q 'clamity/bin' || export PATH="$PATH:$CLAMITY_ROOT/bin"
 
 [ -n "`_os`" ] || return 1  # unsupported OS
 

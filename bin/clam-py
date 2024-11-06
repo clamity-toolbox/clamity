@@ -7,9 +7,9 @@ source $CLAMITY_ROOT/lib/_.sh || return 1
 
 function usage {
 	echo "
-	run-py update | install [<py-pkg>]   # update or install python environ or python pkg
-	eval \`run-py venv\`                   # add clamity's python venv to your search path
-	run-py <py-script>                   # run a python script in clamity's venv
+	clam-py update | install [<py-pkg>]   # update or install python environ or python pkg
+	eval \`clam-py venv\`                   # add clamity's python venv to your search path
+	clam-py <py-script>                   # run a python script in clamity's venv
 "
 }
 

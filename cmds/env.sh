@@ -95,7 +95,7 @@ customCmdDesc=""
 
 # Execute sub-commands
 case "$subcmd" in
-	add-python) eval `$CLAMITY_ROOT/bin/run-py venv`;;
+	add-python) eval `$CLAMITY_ROOT/bin/clam-py venv`;;
 	*) _warn "unknown sub-command $subcmd. Try 'help'." && return 1;;
 esac
 return 0

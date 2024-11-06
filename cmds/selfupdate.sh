@@ -134,7 +134,7 @@ function update_git_installation {
 function _c_update_clamity {
 	_ask "Backup clamity before we begin (Y/n)? " y && { backup_clamity || return 1; }
 	[ -d "$CLAMITY_ROOT/.git" ] && { update_git_installation || return 1; } || { update_tarball_installaton || return 1; }
-	_echo "updating python packages" && _run $CLAMITY_ROOT/bin/run-py update || return 1;
+	_echo "updating python packages" && _run $CLAMITY_ROOT/bin/clam-py update || return 1;
 	_echo "Update package manager (Y/n) " y && { _run $CLAMITY_ROOT/bin/run-clamity os pkg selfupdate || return 1; }
 	_clear_clamity_module_cache
 }
