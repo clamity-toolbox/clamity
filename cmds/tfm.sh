@@ -37,7 +37,8 @@ __Abstract="
 
 # one or more lines detailing usage patterns (REQUIRED)
 __Usage="
-	clamity $cmd { mystate | apply | common | vars | smart-import } [options]
+	clamity $cmd { mystate | apply | vars | smart-import } [options]
+	clamity $cmd common { list | update | new-root <state> <mod> }
 	clamity $cmd { terraform-cmd-and-args }
 "
 
@@ -150,18 +151,17 @@ customCmdDesc=""
 _cmd_exists terraform || _warn "terraform command not found"
 _cmds_needed terraform || { _error "unable to run terraform"; return 1; }
 
+# Establish this is a clamity compatible terraform repo
 TFM_REPO_ROOT="`_git_repo_root`"
-TFM_OPTIONS=""
 tfmRepo=1
 [ -f "$TFM_REPO_ROOT/.clamity/config/settings.sh" ] && grep -q '^terraform_repo=1$' "$TFM_REPO_ROOT/.clamity/config/settings.sh" || tfmRepo=0
 [ -z "$TFM_REPO_ROOT"  -o  $tfmRepo -eq 0 ] && echo "this does not look like a clamity compatible terraform repo" && return 1
 
 if [ -x "$CLAMITY_ROOT/cmds/tfm.d/$subcmd" ]; then
 	export TFM_REPO_ROOT="$TFM_REPO_ROOT"
-	export TFM_OPTIONS="$TFM_OPTIONS"
 	"$CLAMITY_ROOT/cmds/tfm.d/$subcmd" "$@"
 	rc=$?
-	unset TFM_REPO_ROOT TFM_OPTIONS
+	unset TFM_REPO_ROOT
 	return $rc
 fi
 

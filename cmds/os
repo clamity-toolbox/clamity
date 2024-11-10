@@ -92,7 +92,8 @@ function power_mgmt {
 }
 
 cmd=`basename $0`
-[ -n "$1" ] && subcmd="$1" && shift || subcmd=""
+[ -z "$1" ] && { _usage "$customCmdDesc" "$cmd"; exit 1; }
+subcmd="$1" && shift
 
 # external sub-command
 if [ -x "$CLAMITY_ROOT/cmds/os.d/$subcmd" ]; then

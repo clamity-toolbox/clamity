@@ -4,6 +4,10 @@
 
 source $CLAMITY_ROOT/lib/_.sh || exit 1
 
+function common_usage {
+	_echo "usage: clamity tfm common { report | update | new-root <state-group> <module-name> }"
+}
+
 # return 0 if files are in sync
 function check_all_common_files_in_module {
 	local rootModuleDir="$1" action="$2"
@@ -46,11 +50,84 @@ function iterate_through_common_files {
 	return $rc
 }
 
-[ -z "$1" ] && { iterate_through_common_files; exit $?; }
+function new_state_group {
+	local stateDir="$1"
+	_ask "Setup new state group `basename $stateDir` (y/N)? " || return 1
+	_run mkdir $stateDir || return 1
+}
 
-[ ! -f ../../common/common-providers.tf ] && _warn "you must run this command from within a root module directory" && exit 1
+function new_root_module {
+	local state="$1" mod="$2"
+	[ -z "$mod" ] && _echo "usage: clamity tfm common new-root <state> <mod>" && return 1
+	local stateDir="$TFM_REPO_ROOT/state-groups/$state"
+	local rootModDir="$stateDir/$mod"
+	[ -d "$rootModDir" ] && _warn "$rootModDir exists" && return 1
+	[ ! -d "$stateDir" ] && { new_state_group "$stateDir" || return 1; }
+	_run mkdir "$rootModDir" || return 1
+	_run cp "$TFM_REPO_ROOT"/state-groups/common/common-*.tf "$rootModDir" || return 1
 
-[ "$1" == update ] && { iterate_through_common_files update; exit $?; }
+	local cloudProvider=aws # FIXME: this should not be hard coded
 
-echo "usage: clamity tfm common [update]"
-exit 1
+	echo "
+# This file is unique for each terraform root module. The key is a path prefix
+# applied to the S3 bucket state object. It provides for maintaining multiple
+# states on the same backend bucket without the need for workspaces.
+
+terraform {
+  backend \"s3\" {
+    key = \"$state/$mod\"
+  }
+}" >$rootModDir/backend.tf || return 1
+
+	echo "# $mod root module
+
+* [Module document](https://github.com/PKT5/infra-as-code/blob/$state/modules/$mod/$cloudProvider/README.md)
+* [State Listing](STATE.md)
+* [Output Data](OUTPUT.json)
+" >$rootModDir/README.md || return 1
+
+	echo "
+output \"props\" {
+  value = module.$mod.props
+}" >$rootModDir/output.tf
+
+	echo "
+variable \"custom_tags\" {
+  type = map(string)
+  default = {
+    TerraformRoot = \"$state/$mod\"
+  }
+}
+
+variable \"debug\" {
+  type    = bool
+  default = false
+}
+" >$rootModDir/variables.tf
+
+	echo "
+module \"$mod\" {
+  source = \"../../../infra-as-code/modules/$mod/$cloudProvider\"
+  providers = {
+  }
+
+  debug = var.debug
+}
+" >$rootModDir/main.tf
+}
+
+[ -z "$1" ] && common_usage && exit 1
+subcmd="$1" && shift
+
+case "$subcmd" in
+	report)
+		 iterate_through_common_files || exit 1;;
+	update)
+		[ ! -f ../../common/common-providers.tf ] && _warn "you must run this command from within a root module directory" && exit 1
+		iterate_through_common_files update || exit 1;;
+	new-root)
+		new_root_module "$@" || exit 1;;
+	*)
+		common_usage && exit 1;;
+esac
+exit 0

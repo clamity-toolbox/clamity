@@ -196,7 +196,6 @@ function _c_set_config {
 	_c_unset_var "$prop" "$setAsDefault"
 }
 
-
 [ -z "$subcmd" ] && { _brief_usage "$customCmdDesc" "$subcmd"; return 1; }
 [ "$subcmd" = help ] && { _man_page "$customCmdDesc" "$cmd"; return 1; }
 
