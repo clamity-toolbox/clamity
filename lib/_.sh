@@ -98,6 +98,13 @@ function _run {	# run a command
 	"$@"
 }
 
+function _vrun {	# run a command verbosely (also ignore quiet)
+	_is_dryrun && { echo DRYRUN: "$@"; return 0; }
+	# supress stdout if running silent
+	_echo "$@"
+	"$@"
+}
+
 function _sudo {	# execute command using sudo
 	_run sudo "$@"
 }

@@ -15,7 +15,7 @@ function check_all_common_files_in_module {
 	pushd "$rootModuleDir" >/dev/null
 	[ `ls common-*.tf 2>/dev/null|wc -l` -eq 0 ] && popd >/dev/null && return 0  # no common files present
 	local commonDir="$(cd ../../common && pwd)"
-	local file fileToCopy=""
+	local file filesToCopy=""
 
 	for file in common-*.tf; do
 		[ ! -f "$commonDir/$file" ] && echo "    $commonDir/$file not found (remove 'common-' from this file name)" && continue
@@ -89,6 +89,10 @@ terraform {
 	echo "
 output \"props\" {
   value = module.$mod.props
+}
+
+output \"debug\" {
+  value = module.$mod.debug
 }" >$rootModDir/output.tf
 
 	echo "
@@ -111,7 +115,8 @@ module \"$mod\" {
   providers = {
   }
 
-  debug = var.debug
+  custom_tags = var.custom_tags
+  debug       = var.debug
 }
 " >$rootModDir/main.tf
 }

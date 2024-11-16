@@ -38,7 +38,7 @@ __Abstract="
 # one or more lines detailing usage patterns (REQUIRED)
 __Usage="
 	clamity $cmd { mystate | apply | vars | smart-import } [options]
-	clamity $cmd common { list | update | new-root <state> <mod> }
+	clamity $cmd common { report | update | new-root <state-group> <module-name> }
 	clamity $cmd { terraform-cmd-and-args }
 "
 

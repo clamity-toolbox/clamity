@@ -8,4 +8,4 @@ source $CLAMITY_ROOT/lib/_.sh || exit 1
 
 _backendCfg="`ls ../*.tfbackend`"
 [ -n "$_backendCfg" ] && _tfArgs="-backend-config=$_backendCfg" || _tfArgs=""
-_run terraform init $_tfArgs "$@"
+_vrun terraform init $_tfArgs "$@"
