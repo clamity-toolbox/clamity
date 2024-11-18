@@ -148,6 +148,7 @@ function install_abstracted_pkg {
 	local pkg="$1"
 	case "$pkg" in
 		aws)
+			[ "`_os`" != macos ] && _error "`_os` not supported for this command." && return 1
 			_run curl "https://awscli.amazonaws.com/AWSCLIV2.pkg" -o "/tmp/AWSCLIV2.pkg"
 			_run sudo installer -pkg /tmp/AWSCLIV2.pkg -target /
 			;;

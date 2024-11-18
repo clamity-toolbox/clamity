@@ -167,4 +167,3 @@ fi
 
 _vecho "passing command thru to terraform..."
 _run terraform "$subcmd" "$@"
-return $?

@@ -3,4 +3,5 @@
 # managed by you, it will not be over-written.
 
 # alias c='clamity'
-# alias tfm='clamity tfm'
+# alias ctfm='clamity tfm'
+# alias caws='clamity aws'
