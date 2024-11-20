@@ -3,6 +3,7 @@
 # desc: provides exteneded capabilities to terraform
 
 source $CLAMITY_ROOT/lib/_.sh || return 1
+source $CLAMITY_ROOT/cmds/tfm.d/shared-funcs.sh || return 1
 
 cmd=tfm
 subcmd="$1"
@@ -37,7 +38,7 @@ __Abstract="
 
 # one or more lines detailing usage patterns (REQUIRED)
 __Usage="
-	clamity $cmd { mystate | apply | vars | smart-import } [options]
+	clamity $cmd { mystate | apply | vars | smart-import | record-results } [options]
 	clamity $cmd common { report | update | new-root <state-group> <module-name> }
 	clamity $cmd { terraform-cmd-and-args }
 "
@@ -49,12 +50,17 @@ __CommandOptions="
 
 MORE
 
-	The 'common' subcommand syncs the code residing in the lib/ directory
-	across all participating root modules. You can opt-in on a file-by-file
-	basis simply by keeping a copy of the file with the same name within
-	the root module directory. This	mechanism solves the problem whereby
-	terraform code, at the outer-most level, requires specific attributes
-	and properties for the deployment, such as provider definitions.
+	common
+		The 'common' subcommand syncs the code residing in the lib/ directory
+		across all participating root modules. You can opt-in on a file-by-file
+		basis simply by keeping a copy of the file with the same name within
+		the root module directory. This	mechanism solves the problem whereby
+		terraform code, at the outer-most level, requires specific attributes
+		and properties for the deployment, such as provider definitions which
+		often result in duplicated code.
+
+	record-results
+		Saves state listing to STATE.md and output to OUTPUT.json.
 "
 
 # For commands that have their own special env vars, inlude this section in
@@ -66,10 +72,6 @@ __EnvironmentVariables="
 	TFM_ROOT_MODS
 		Relative path from TFM_REPO_ROOT to the top of the root module
 		tree (default = 'roots').
-
-	TFM_TERRAFORM_CMD_ARGS
-		Additional arguments to be passed to the terraform command. This
-		is usually set in a root's ./.tfm.sh file.
 "
 
 # Optional pre-formatted section inserted towards end before Examples
@@ -134,15 +136,11 @@ __Examples="
 #
 # Note how each command is on its own line prefixed with '\n\t'.
 
-customCmdDesc=""
-# customCmdDesc="
-# \n\tlist - list config variables
-# \n\tset - set a config variable
-# \n\tshow - report env and default settings
-# \n\tunset - unset config variable
-# "
+# customCmdDesc=""
+customCmdDesc="
+\n\trecord-results - saves state to STATE.md and output to OUTPUT.json
+"
 # ---------------------------------------------------------------------------
-
 
 
 [ -z "$subcmd" ] && { _brief_usage "$customCmdDesc" "$subcmd"; return 1; }
@@ -164,6 +162,10 @@ if [ -x "$CLAMITY_ROOT/cmds/tfm.d/$subcmd" ]; then
 	unset TFM_REPO_ROOT
 	return $rc
 fi
+
+case "$subcmd" in
+	record-results) { tfm_record_results; return $?; }
+esac
 
 _vecho "passing command thru to terraform..."
 _run terraform "$subcmd" "$@"
