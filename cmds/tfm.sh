@@ -40,6 +40,7 @@ __Abstract="
 __Usage="
 	clamity $cmd { mystate | apply | vars | smart-import | record-results } [options]
 	clamity $cmd common { report | update | new-root <state-group> <module-name> }
+	clamity $cmd cicd complete
 	clamity $cmd { terraform-cmd-and-args }
 "
 
@@ -49,6 +50,11 @@ __CommandOptions="
 		Need some
 
 MORE
+
+	cicd {complete}
+		An interface into various CI/CD pipeline processes. 'complete' will
+		execute a 'terraform plan' (and 'init' if need be) on all root modules
+		in sequence.
 
 	common
 		The 'common' subcommand syncs the code residing in the lib/ directory

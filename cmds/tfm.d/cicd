@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+
+# desc: CI/CD processing
+
+source $CLAMITY_ROOT/lib/_.sh || exit 1
+
+function common_usage {
+	_echo "usage: clamity tfm cicd { complete }"
+}
+
+function complete_run {
+	local mod
+	[ ! -x $TFM_REPO_ROOT/.clamity/config/module-sequence.sh ] && echo "$TFM_REPO_ROOT/.clamity/config/module-sequence.sh not found or executable" && return 1
+	cd $TFM_REPO_ROOT || return 1
+	for mod in `$TFM_REPO_ROOT/.clamity/config/module-sequence.sh`; do
+		cd $TFM_REPO_ROOT/state-groups/$mod || return 1
+		_echo "Processing `pwd`"
+		[ ! -f .terraform/terraform.tfstate ] && { _run run-clamity tfm init || return 1; }
+		_run run-clamity tfm plan || return 1
+	done
+	_echo "Complete execution successful"
+	return 0
+}
+
+[ -z "$1" ] && common_usage && exit 1
+subcmd="$1" && shift
+
+case "$subcmd" in
+	complete) complete_run; exit $?;;
+	*) common_usage && exit 1;;
+esac
+exit 0
