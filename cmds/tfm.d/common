@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # desc: verify & sync tf code common to all root modules
 
