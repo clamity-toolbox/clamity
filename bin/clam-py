@@ -14,14 +14,14 @@ function usage {
 }
 
 function setup_venv {
-	_cmds_needed python3 || return 1
-	_echo "setting up python virtual environment: python3 -m venv $CLAMITY_HOME/pyvenv"
-	_run python3 -m venv $CLAMITY_HOME/pyvenv
+	_cmds_needed python3 >&2 || return 1
+	_echo "setting up python virtual environment: python3 -m venv $CLAMITY_HOME/pyvenv" >&2
+	python3 -m venv $CLAMITY_HOME/pyvenv >&2
 }
 
 function install_core_modules {
-	_echo "installing core python modules"
-	_run $CLAMITY_HOME/pyvenv/bin/pip3 install `grep -v '^#' $CLAMITY_ROOT/etc/dependencies/core-python-modules.txt`
+	_echo "installing core python modules ($CLAMITY_ROOT/etc/dependencies/core-python-modules.txt)" >&2
+	$CLAMITY_HOME/pyvenv/bin/pip3 install `egrep -v '^#|^$' $CLAMITY_ROOT/etc/dependencies/core-python-modules.txt` >&2
 }
 
 function update_pip_pkgs {
@@ -29,21 +29,35 @@ function update_pip_pkgs {
 	_run $CLAMITY_HOME/pyvenv/bin/pip3 update pip || return 1
 }
 
+function add_missing_python_pkgs {
+	_run $CLAMITY_HOME/pyvenv/bin/pip3 list installed >/tmp/py-installed-$$ || return 1
+	local p missing_pkgs=""
+	for p in `egrep -v '^#|^$' $CLAMITY_ROOT/etc/dependencies/core-python-modules.txt`; do
+		grep -q "^$p " /tmp/py-installed-$$ || missing_pkgs="$missing_pkgs $p"
+	done
+	[ -n "$missing_pkgs" ] && { _run $CLAMITY_HOME/pyvenv/bin/pip3 install $missing_pkgs || return 1; }
+	_run /bin/rm -f /tmp/py-installed-$$
+	return 0
+}
+
 [ -z "$1" ] && usage && exit 1
 
-[ "$1" == 'update' ] && [ ! -d "$CLAMITY_HOME/pyvenv/bin/python3" ] && exit 0 # py not installed
-[ "$1" == 'update' ] && { update_pip_pkgs; exit $?; }
+# update python packages and quit
+[ "$1" == 'update' ] && [ ! -d "$CLAMITY_HOME/pyvenv/bin/python3" ] && exit 0 # py not installed, nothing to do
+[ "$1" == 'update' ] && { update_pip_pkgs && add_missing_python_pkgs; exit $?; }
 
-[ ! -f "$CLAMITY_HOME/pyvenv/bin/python3" ] && { setup_venv && install_core_modules || exit 1; }  # install py venv
+# install python virtual environment
+[ ! -f "$CLAMITY_HOME/pyvenv/bin/python3" ] && { setup_venv && install_core_modules || exit 1; }
 
+# install a python package and quit
 [ "$1" == 'install' ] && { [ -z "$2" ] && exit 0 || { pip3 install $2; exit $?; } }
 
-if [ "$1" == 'venv' ]; then
-	echo $PATH | grep -q "$CLAMITY_HOME/pyvenv/bin:" || echo "export PATH=\"$CLAMITY_HOME/pyvenv/bin:$PATH\""
-	exit 0
-fi
+# generate output for eval to add clamity's python venv to the search path
+[ "$1" == 'venv' ] && { { echo $PATH | grep -q "$CLAMITY_HOME/pyvenv/bin:" || echo "export PATH=\"$CLAMITY_HOME/pyvenv/bin:$PATH\""; }; exit 0; }
 
+# verify all core python modules are installed
+add_missing_python_pkgs || exit 1
+
+# Run a clamity python command
 export PYTHONPATH="$CLAMITY_ROOT/lib/py:$PYTHONPATH"
 _run $CLAMITY_HOME/pyvenv/bin/python3 "$@"
-
-exit 0

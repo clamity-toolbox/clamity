@@ -1,10 +1,9 @@
 """
 Clamity - Development & Operations Toolbox
 
-The Clamity toolbox includes this python module which provides
-a large number of useful classes for accessing many functions
-and processes of the platform.
-
+The Clamity toolbox includes this python module which provides a large number of
+useful classes for wrapping any number of service (for example, working with ssh
+keys), making common dev ops tasks easier for the end user.
 """
 
 import sys

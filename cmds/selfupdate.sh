@@ -133,7 +133,7 @@ function update_git_installation {
 function _c_update_clamity {
 	_ask "Backup clamity before we begin (Y/n)? " y && { backup_clamity || return 1; }
 	[ -d "$CLAMITY_ROOT/.git" ] && { update_git_installation || return 1; } || { update_tarball_installaton || return 1; }
-	_echo "updating python packages" && _run $CLAMITY_ROOT/bin/clam-py update || return 1;
+	_echo "Updating python packages in clamity venv" && _run $CLAMITY_ROOT/bin/clam-py update || return 1;
 	[ -n "$CLAMITY_os_preferred_pkg_mgr" ] && { _ask "Update OS package manager '$CLAMITY_os_preferred_pkg_mgr' (Y/n) " y && { _run $CLAMITY_ROOT/bin/run-clamity os pkg selfupdate || return 1; } }
 	_clear_clamity_module_cache
 }
