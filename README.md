@@ -98,3 +98,11 @@ context sensitive help. Just run incomplete `clamity` commands or add `help` to
 the end of a command for more detail.
 
 Guides and other docs can be found [here](docs/README.md).
+
+## Clamity in VSCode Notes
+
+- Install the Python, Flake8 & Black Formatter extensions
+- Set the python interpreter (cmd pallet >Python: Command Interpreter) to
+  `~/.clamity/pyvenv/bin/python3` - Do _NOT_ use the file browser window, type
+  the command and path in the box
+- Setup a .env file in the clamity repo's root directory (see .env.sample)

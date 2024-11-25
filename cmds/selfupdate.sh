@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
-# desc: keep your clamity installation up to date
+# desc: update clamity and your OS packages
+
 
 # THIS FILE IS SOURCED INTO AND THEREFORE MUTATES THE CURRENT SHELL
 

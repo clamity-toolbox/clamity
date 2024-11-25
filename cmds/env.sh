@@ -26,7 +26,7 @@ __Abstract="
 
 # one or more lines detailing usage patterns (REQUIRED)
 __Usage="
-	clamity env add-python
+	clamity env activate-python
 "
 
 # Don't include common options here
@@ -35,7 +35,7 @@ __CommandOptions="
 
 MORE
 
-	add-python
+	activate-python
 		Adds the clamity python virtual environment's bin/ directory to your
 		shell's search path (PATH) making python package commands available.
 		This will also reset your default python3 version to clamity's.
@@ -95,7 +95,7 @@ customCmdDesc=""
 
 # Execute sub-commands
 case "$subcmd" in
-	add-python)	eval `$CLAMITY_ROOT/bin/clam-py venv`;;
+	activate-python) eval `$CLAMITY_ROOT/bin/clam-py activate`;;
 	*) _warn "unknown sub-command $subcmd. Try 'help'." && return 1;;
 esac
 return 0

@@ -8,7 +8,7 @@ source $CLAMITY_ROOT/lib/_.sh || return 1
 function usage {
 	echo "
 	clam-py update | install [<py-pkg>]   # update or install python environ or python pkg
-	eval \`clam-py venv\`                   # add clamity's python venv to your search path
+	eval \`clam-py activate\`               # activate clamity's virtual python env
 	clam-py <py-script>                   # run a python script in clamity's venv
 "
 }
@@ -36,7 +36,7 @@ function add_missing_python_pkgs {
 		grep -q "^$p " /tmp/py-installed-$$ || missing_pkgs="$missing_pkgs $p"
 	done
 	[ -n "$missing_pkgs" ] && { _run $CLAMITY_HOME/pyvenv/bin/pip3 install $missing_pkgs || return 1; }
-	_run /bin/rm -f /tmp/py-installed-$$
+	/bin/rm -f /tmp/py-installed-$$
 	return 0
 }
 
@@ -52,12 +52,16 @@ function add_missing_python_pkgs {
 # install a python package and quit
 [ "$1" == 'install' ] && { [ -z "$2" ] && exit 0 || { pip3 install $2; exit $?; } }
 
-# generate output for eval to add clamity's python venv to the search path
-[ "$1" == 'venv' ] && { { echo $PATH | grep -q "$CLAMITY_HOME/pyvenv/bin:" || echo "export PATH=\"$CLAMITY_HOME/pyvenv/bin:$PATH\""; }; exit 0; }
-
 # verify all core python modules are installed
-add_missing_python_pkgs || exit 1
+add_missing_python_pkgs >&2 || exit 1
+
+export PYTHONPATH="$CLAMITY_ROOT/lib/py:$PYTHONPATH"
+
+# generate output for eval to add clamity's python venv to the search path
+# [ "$1" == 'venv' ] && { { echo $PATH | grep -q "$CLAMITY_HOME/pyvenv/bin:" || echo "export PATH=\"$CLAMITY_HOME/pyvenv/bin:$PATH\""; }; exit 0; }
+[ "$1" == 'activate' ] && { _warn "type 'deactivate' to leave the clamity python virtual environment" && echo "source \"$CLAMITY_HOME/pyvenv/bin/activate\"" && exit 0; }
 
 # Run a clamity python command
-export PYTHONPATH="$CLAMITY_ROOT/lib/py:$PYTHONPATH"
+export PATH="$CLAMITY_ROOT/pyvenv/bin:$PATH"
+[ -x $CLAMITY_HOME/pyvenv/bin/$1 ] && { cmd=$1 && shift && _run $CLAMITY_HOME/pyvenv/bin/$cmd "$@"; exit $?; }
 _run $CLAMITY_HOME/pyvenv/bin/python3 "$@"

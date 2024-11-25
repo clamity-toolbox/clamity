@@ -1,0 +1,17 @@
+# https://flake8.pycqa.org/en/latest/user/configuration.html
+[flake8]
+exclude =
+    .git,
+    __pycache__,
+    docs/source/conf.py,
+    old,
+    build,
+    dist
+max-complexity = 10
+
+# Add '  # noqa' to the end of any line over this length to avoid E501
+max-line-length = 125
+# extend-ignore =
+#     # line too long
+#     E501
+per-file-ignores = __init__.py:F401
