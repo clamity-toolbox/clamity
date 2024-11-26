@@ -1,8 +1,7 @@
 
 # desc: mutate the shell's environment
 
-# THIS FILE IS SOURCED INTO AND THEREFORE MUTATES THE CURRENT SHELL
-
+# THIS FILE IS SOURCED INTO, AND THEREFORE MUTATES, THE CURRENT SHELL
 # supported shells: bash, zsh
 
 source $CLAMITY_ROOT/lib/_.sh || return 1

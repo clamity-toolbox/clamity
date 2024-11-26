@@ -1,6 +1,8 @@
-# THIS FILE MUST WORK FOR ALL SUPPORTED SHELLS: zsh, bash
 
 # desc: provides exteneded capabilities to the aws command line utility
+
+# THIS FILE IS SOURCED INTO, AND THEREFORE MUTATES, THE CURRENT SHELL
+# supported shells: bash, zsh
 
 source $CLAMITY_ROOT/lib/_.sh || return 1
 
@@ -15,7 +17,7 @@ __Abstract="
 "
 
 __Usage="
-	clamity $cmd assume-role ... [options]
+	clamity $cmd { whoami | assume-role } [options]
 	clamity $cmd whoami
 	clamity $cmd { aws-cmd-and-args }
 "

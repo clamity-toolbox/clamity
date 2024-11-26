@@ -65,7 +65,7 @@ function __usage_help {
 	echo -e "USAGE\n$__Usage"
 	echo -e "ABSTRACT\n\t$__Abstract"
 	__describe_sub_commands "$customCmdDesc" "$cmd" "$flags"
-	[ -n "$__CommandOptions" ] && echo -e "COMMAND OPTIONS\n\t$__CommandOptions"
+	[ -n "$__CommandOptions" ] && echo $__CommandOptions|egrep -qe '^(DESCRIPTIONS)' && echo "$__CommandOptions" || echo -e "COMMAND OPTIONS\n\t$__CommandOptions"
 	echo $flags | grep -q '\-no-common-opts' || _parse_options_help common
 	[ -n "$__CustomSections" ] && echo -e "$__CustomSections"
 	[ -n "$__EnvironmentVariables" ] && echo -e "ENVIRONMENT VARIABLES\n\t$__EnvironmentVariables"

@@ -1,8 +1,7 @@
 
 # desc: manage clamity configuration settings
 
-# THIS FILE IS SOURCED INTO AND THEREFORE MUTATES THE CURRENT SHELL
-
+# THIS FILE IS SOURCED INTO, AND THEREFORE MUTATES, THE CURRENT SHELL
 # supported shells: bash, zsh
 
 source $CLAMITY_ROOT/lib/_.sh || return 1
@@ -41,12 +40,32 @@ __Usage="
 "
 
 # Don't include common options here
-__CommandOptions=""
-# __CommandOptions="
+# __CommandOptions=""
+__CommandOptions="DESCRIPTIONS
+
+	list
+		list common config options
+
+	set ['default'] <config-opt> <value>
+		Sets a configuration option <config-opt>. For a list of _some_
+		config options, run 'clamity config list'. Options aren't managed
+		centrally. The 'default' keyword stores the setting and applies to
+		all current shells using clamity. Otherwise, the setting is only
+		in the environment of the current terminal shell.
+
+	show ['defaults']
+		Print the options. 'default' shows the options from the persistent
+		settings file. otherwise it lists the options set in the environment.
+
+	unset ['default'] <config-opt>
+		Unsets an option (see set).
+"
+# COMMAND OPTIONS
+
 # 	--opt-a
 # 		No additional arg. boolean. Use _is_true() and _is_false() funcs
 # 		to evaluate.
-#
+
 # 	--opt-name <name>
 # 		the name of the thing you specifed using --opt-name.
 # "
@@ -198,6 +217,7 @@ function _c_set_config {
 
 [ -z "$subcmd" ] && { _brief_usage "$customCmdDesc" "$subcmd"; return 1; }
 [ "$subcmd" = help ] && { _man_page "$customCmdDesc" "$cmd"; return 1; }
+return 2
 
 # Execute sub-commands
 case "$subcmd" in

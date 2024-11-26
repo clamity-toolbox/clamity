@@ -1,10 +1,7 @@
-#!/usr/bin/env bash
 
-# desc: update clamity and your OS packages
+# desc: update clamity and OS packages
 
-
-# THIS FILE IS SOURCED INTO AND THEREFORE MUTATES THE CURRENT SHELL
-
+# THIS FILE IS SOURCED INTO, AND THEREFORE MUTATES, THE CURRENT SHELL
 # supported shells: bash, zsh
 
 source $CLAMITY_ROOT/lib/_.sh || return 1
