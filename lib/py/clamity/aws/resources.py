@@ -3,26 +3,61 @@ Lowest level AWS resources with a standardized interface.
 """
 
 from abc import ABC, abstractmethod
-
-# import sys
-import boto3
 from typing import Optional
 
-# from enum import Enum
+import sys
+import boto3
+import deepdiff
+from enum import Enum
 
 from . import session
 
-# import clamity.core.utils as cUtils
+import clamity.core.utils as cUtils
 
 
-def parseTagList(tagList: list) -> dict:
+def _parseTagList(tagList: list) -> dict:
     """[ { 'Key': 'xyz', 'Value' : 'abc'}, ... ] -> {'xyz': 'abc', ...}"""
     return {kv["Key"]: kv["Value"] for kv in tagList}
 
 
-def assembleTagList(tagDict: dict) -> list:
+def _assembleTagList(tagDict: dict) -> list:
     """{'xyz': 'abc', ...} -> [ {'Key': 'xyz', 'Value': 'abc'}, ... ]"""
     return [{"Key": key, "Value": value} for key, value in tagDict.items()]
+
+
+# Printing resource data
+def _printLineFormatData(fieldOrder, fieldProps: dict) -> dict:
+    """create a format string and hyphen separators for use with line printing"""
+    fmtString = ""
+    i = 0
+    separators = []  # underscores under header
+    for col in fieldOrder:
+        alignment = ">" if "align-right" in fieldProps[col] else ""
+        fmtString += "{" + str(i) + ":" + alignment + str(fieldProps[col]["width"]) + "s}  "
+        separators.append("-" * fieldProps[col]["width"])
+        i += 1
+    return {"formatString": fmtString, "separators": separators}
+
+
+def _printTableHeader(displayFields: list, displayFieldProps: dict) -> None:
+    """print line headers and separator for tabular listing"""
+    lineFormat = _printLineFormatData(displayFields, displayFieldProps)
+    print(lineFormat["formatString"].format(*displayFields))
+    print(lineFormat["formatString"].format(*lineFormat["separators"]))
+
+
+def _printTableLine(obj: any, displayFields: list, displayFieldProps: dict, truncate=True) -> None:
+    """Print resource on a line for tabular listing"""
+    lineFormat = _printLineFormatData(displayFields, displayFieldProps)
+    orderedData = [
+        (
+            (getattr(obj, field) or "-")
+            if not truncate
+            else cUtils.shortenWithElipses((getattr(obj, field) or "-"), displayFieldProps[field]["width"])
+        )
+        for field in displayFields
+    ]
+    print(lineFormat["formatString"].format(*orderedData))
 
 
 _resourceCacheData = {}
@@ -114,9 +149,35 @@ class resourceCache:
     #     return self.data[category][region] if region in self.data[category] else None
 
 
+class resourceType(Enum):
+    UNKNOWN = 0
+    VPC = 1
+    SUBNET = 2
+    SECRET = 3
+
+
 # One AWS resource (abstract)
 class _resource(ABC):
+    isDefunct = False  # True if destroy() is called
     exists = False
+    _describeData = {}
+    _newData = {}
+
+    # these should be implemented as attributes - no better way to abstract them?
+    @property
+    @abstractmethod
+    def resourceType(self) -> resourceType:
+        pass
+
+    @property
+    @abstractmethod
+    def _displayFields(self) -> list:
+        pass
+
+    @property
+    @abstractmethod
+    def _displayFieldProps(self) -> dict:
+        pass
 
     def __init__(self, **kwargs) -> None:
         self._session = session.sessionSettings()
@@ -138,12 +199,51 @@ class _resource(ABC):
         )
 
     @property
-    def tags(self) -> dict:
-        return parseTagList(self._describeData["Tags"] if "Tags" in self._describeData else {})
+    def isDirty(self) -> bool:
+        return True if self._describeData and self._newData and deepdiff(self._describeData, self._newData) else False
 
     @property
-    def dump(self):
-        pass
+    def tags(self) -> dict:
+        if self.exists:
+            return _parseTagList(self._describeData["Tags"] if "Tags" in self._describeData else {})
+        return _parseTagList(self._newData["Tags"] if "Tags" in self._newData else {})
+
+    # @tags.setter
+    # def tags(self, newTags: dict) -> None:
+    #     if self.exists:
+    #         self._newData["Tags"] = _assembleTagList(newTags)
+    #         self.dirty = True
+
+    def updateTags(self, newTags: dict) -> None:
+        changes = _assembleTagList(deepdiff(self.tags, {**self.tags, **newTags}))
+        print(changes)
+
+    # @abstractmethod
+    # def update(self) -> bool:
+    #     pass
+
+    # @abstractmethod
+    # def create(self) -> bool:
+    #     pass
+
+    # @abstractmethod
+    # def destroy(self) -> bool:
+    #     pass
+
+    # @property
+    # def raw_data(self) -> dict:
+    #     return self._describeData
+
+    def print(self, **kwargs) -> None:
+        output = kwargs["output"] if "output" in kwargs else self._session.output
+        truncate = kwargs["truncate"] if "truncate" in kwargs else True
+        header = kwargs["header"] if "header" in kwargs else True
+        if output == session.outputFormat.JSON:
+            cUtils.dumpJson(self._describeData)
+        else:
+            if header:
+                _printTableHeader(self._displayFields, self._displayFieldProps)
+            _printTableLine(self, self._displayFields, self._displayFieldProps, truncate=truncate)
 
 
 # Collection of AWS resource (abstract)
@@ -164,16 +264,17 @@ class _resources(ABC):
         return len(self._resources)
 
     @abstractmethod
-    def fetch(self, filter: dict = {}):  # returns self
+    def fetch(self, filter: dict = {}, **kwargs):  # returns self
         pass
 
-    def findFirst(self, nameOrIdToFind: str) -> Optional[_resource]:
+    def findOne(self, nameOrIdToFind: str) -> Optional[_resource]:
         resourceL = [r for r in self._resources if r.id == nameOrIdToFind or r.name == nameOrIdToFind]
+        if len(resourceL) > 1:
+            print(f"warn: findOne() returned {len(resourceL)} resources matching {nameOrIdToFind}", sys.stdout)
         return resourceL[0] if len(resourceL) > 0 else None
 
-    # @abstractmethod
-    def findSome(self, filter: dict) -> list:  # list of 'resource'
-        pass
+    # def findSome(self, filter: dict) -> list:  # list of 'resource'
+    #     pass
 
     @property
     def isEmpty(self) -> bool:
@@ -183,7 +284,27 @@ class _resources(ABC):
     def resourceIdsByName(self) -> dict:
         return {r.name: r.id for r in self._resources if r.name}
 
+    def print(self, **kwargs) -> None:
+        output = kwargs["output"] if "output" in kwargs else self._session.output
+        truncate = kwargs["truncate"] if "truncate" in kwargs else True
+        header = kwargs["header"] if "header" in kwargs else True
+        if not len(self._resources):
+            print("no data")
+            return
+        d = []
+        for r in self._resources:
+            if header and output == session.outputFormat.TABLE:
+                _printTableHeader(r._displayFields, r._displayFieldProps)  # bad - private vars
+                header = False
+            if output == session.outputFormat.JSON:
+                d.append(r._describeData)  # bad - private vars
+            else:
+                r.print(truncate=truncate, header=False, output=output)
+        if output == session.outputFormat.JSON:
+            cUtils.dumpJson(d)
 
+
+# ------------------------------------------------------------------------------------------------
 # class subnet(resource):
 #     resourceType = "subnet"
 
@@ -445,9 +566,17 @@ class _resources(ABC):
 
 
 class vpc(_resource):
+    resourceType = resourceType.VPC
+    _displayFields = ["name", "vpcId", "cidrBlock"]
+    _displayFieldProps = {"cidrBlock": {"width": 18}, "name": {"width": 25}, "vpcId": {"width": 21}}
+
     @property
     def id(self) -> Optional[str]:
         return None if not self.exists else self._describeData["VpcId"]
+
+    @property
+    def vpcId(self) -> str:
+        return self.id
 
     @property
     def cidrBlock(self) -> Optional[str]:
@@ -488,3 +617,13 @@ class vpcs(_resources):
 #         for r in self._resourceCache.get(self.resourceType):
 #             cUtils.dumpJson(r)
 #             self._resources.append(subnet(r))
+
+
+class resourceFactory:
+
+    @staticmethod
+    def new(r: resourceType) -> _resource:
+        if r == resourceType.VPC:
+            return vpc()
+        print("resourceFactory doesn't know how to create a", r, file=sys.stderr)
+        exit(1)

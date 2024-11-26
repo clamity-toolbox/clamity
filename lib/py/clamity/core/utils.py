@@ -5,7 +5,7 @@ import datetime
 import json
 
 
-def dumpJson(d: dict, outputStream=sys.stdout) -> None:
+def dumpJson(d: any, outputStream=sys.stdout) -> None:
     """Dump a dictionary as JSON with sorted keys"""
 
     def jsonDateTimeHandler(x):
@@ -23,3 +23,8 @@ def dumpObj(o: any, **kwargs) -> None:
         if not p.startswith("_"):
             d[p] = getattr(o, p)
     dumpJson(d, **kwargs)
+
+
+def shortenWithElipses(s: str, length: int) -> str:
+    """if s > len chars, truncate to len - 3 and add elipses (...)"""
+    return s if len(s) <= length else s[: length - 3] + "..."

@@ -7,6 +7,7 @@ import os
 
 # from clamity.aws import manager as aws  # aws resource manager
 from clamity import aws
+from clamity.aws.session import outputFormat
 
 
 def secrets_schema():
@@ -45,6 +46,7 @@ def secrets_schema():
 
 # rm = aws.resourceManager()
 # secret = aws.resourceFactory("secret")
-# print(aws.resources.vpcs().fetch().findFirst("vpc-010df66204a575562").id)
+# aws.resources.vpcs().fetch().findOne("vpc-010df66204a575562").print(output=outputFormat.JSON)
+aws.resources.vpcs().fetch().print(output=outputFormat.TABLE)
 # print(aws.resources.vpcs().fetch().findFirst("vpc-010df66204a575562").name)
-ss = aws.session.sessionSettings().printOptions()
+# ss = aws.session.sessionSettings().printOptions()

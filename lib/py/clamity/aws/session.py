@@ -1,12 +1,14 @@
 import sys
 import boto3
+from enum import Enum
 from typing import Optional
 
-# from enum import Enum
-
-# from . import manager
-
 import clamity.core.utils as cUtils
+
+
+class outputFormat(Enum):
+    JSON = 1
+    TABLE = 2
 
 
 class Singleton(type):
@@ -23,6 +25,7 @@ class Singleton(type):
 class sessionSettings(metaclass=Singleton):
     debug: bool = False
     verbose: bool = False
+    output: str = outputFormat.TABLE
     _default_region: Optional[str] = None
 
     def __init__(self) -> None:
