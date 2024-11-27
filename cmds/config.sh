@@ -142,7 +142,6 @@ customCmdDesc="
 
 
 
-
 function _c_show_config_settings {
 	DefaultCfgFile="`_defaults DefaultsFile`"
 	[ -z "$1" ] && echo -e "\nEnvironment Variables\n---------------------" && env|grep ^CLAMITY_|sort && return 0
@@ -217,7 +216,6 @@ function _c_set_config {
 
 [ -z "$subcmd" ] && { _brief_usage "$customCmdDesc" "$subcmd"; return 1; }
 [ "$subcmd" = help ] && { _man_page "$customCmdDesc" "$cmd"; return 1; }
-return 2
 
 # Execute sub-commands
 case "$subcmd" in

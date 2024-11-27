@@ -1,7 +1,7 @@
 """Utility functions"""
 
 import sys
-import datetime
+from datetime import datetime, timezone
 import json
 
 
@@ -9,7 +9,7 @@ def dumpJson(d: any, outputStream=sys.stdout) -> None:
     """Dump a dictionary as JSON with sorted keys"""
 
     def jsonDateTimeHandler(x):
-        if isinstance(x, datetime.datetime) or isinstance(x, datetime.date):
+        if isinstance(x, datetime) or isinstance(x, datetime.date):
             return x.isoformat()
         return str(type(x))
 
@@ -28,3 +28,11 @@ def dumpObj(o: any, **kwargs) -> None:
 def shortenWithElipses(s: str, length: int) -> str:
     """if s > len chars, truncate to len - 3 and add elipses (...)"""
     return s if len(s) <= length else s[: length - 3] + "..."
+
+
+def convertToUtcStandardFormat(dt: datetime) -> str:
+    """Converts a naive datetime object to UTC."""
+    # if timezone-aware else convert naive datetime to UTC
+    return (dt.astimezone(timezone.utc) if dt.tzinfo is not None else dt.replace(tzinfo=timezone.utc)).strftime(
+        "%Y-%m-%d.%H:%M:%S.UTC"
+    )

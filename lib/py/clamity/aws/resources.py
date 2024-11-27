@@ -3,16 +3,13 @@ Lowest level AWS resources with a standardized interface.
 """
 
 from abc import ABC, abstractmethod
-from typing import Optional
-
+from typing import Optional, Self
+from enum import Enum
 import sys
 import boto3
 import deepdiff
-from enum import Enum
-
-from . import session
-
 import clamity.core.utils as cUtils
+from . import session
 
 
 def _parseTagList(tagList: list) -> dict:
@@ -58,6 +55,14 @@ def _printTableLine(obj: any, displayFields: list, displayFieldProps: dict, trun
         for field in displayFields
     ]
     print(lineFormat["formatString"].format(*orderedData))
+
+
+def _checkHttpResponse(response: dict) -> bool:
+    if response.get("ResponseMetadata", {}).get("HTTPStatusCode") != 200:
+        print("unexpected response code", file=sys.stderr)
+        cUtils.dumpJson(response, outputStream=sys.stderr)
+        return False
+    return True
 
 
 _resourceCacheData = {}
@@ -158,12 +163,14 @@ class resourceType(Enum):
 
 # One AWS resource (abstract)
 class _resource(ABC):
-    isDefunct = False  # True if destroy() is called
-    exists = False
+    _defunct = False  # True if destroy() is called
+    _exists = False
     _describeData = {}
     _newData = {}
+    _props = {}  # allow for prototyping properties when creating new instance
+    _region = None
 
-    # these should be implemented as attributes - no better way to abstract them?
+    # these should be attributes -  is there a better way to abstract them?
     @property
     @abstractmethod
     def resourceType(self) -> resourceType:
@@ -171,7 +178,7 @@ class _resource(ABC):
 
     @property
     @abstractmethod
-    def _displayFields(self) -> list:
+    def _displayFieldOrder(self) -> list:
         pass
 
     @property
@@ -182,8 +189,30 @@ class _resource(ABC):
     def __init__(self, **kwargs) -> None:
         self._session = session.sessionSettings()
         if "_describeData" in kwargs:
-            self.exists = True
+            self._region = kwargs.get("region") or self._session.default_region
+            self._exists = True
             self._describeData = kwargs["_describeData"]
+        elif kwargs.get("props"):
+            # cUtils.dumpJson?(kwargs["props"])
+            for p, v in kwargs["props"].items():
+                if p not in self._props:
+                    print(f"property {p} not allowed", file=sys.stder)
+                    exit(1)
+                elif not isinstance(v, self._props[p]):
+                    # print(">>", p, self._props[p])
+                    print(f"property '{p}' type mismatch. Should be {self._props[p]}")
+                    exit(1)
+                self._newData[p] = v
+
+    @property
+    def isDefunct(self) -> bool:
+        if self._session.debug and self._defunct:
+            print(f"debug: reporting defunct resource {self.id}", file=sys.stderr)
+        return self._defunct
+
+    @property
+    def exists(self) -> bool:
+        return self._exists
 
     @property
     @abstractmethod
@@ -199,6 +228,10 @@ class _resource(ABC):
         )
 
     @property
+    def region(self) -> Optional[str]:
+        return self._region
+
+    @property
     def isDirty(self) -> bool:
         return True if self._describeData and self._newData and deepdiff(self._describeData, self._newData) else False
 
@@ -208,31 +241,26 @@ class _resource(ABC):
             return _parseTagList(self._describeData["Tags"] if "Tags" in self._describeData else {})
         return _parseTagList(self._newData["Tags"] if "Tags" in self._newData else {})
 
-    # @tags.setter
-    # def tags(self, newTags: dict) -> None:
-    #     if self.exists:
-    #         self._newData["Tags"] = _assembleTagList(newTags)
-    #         self.dirty = True
-
     def updateTags(self, newTags: dict) -> None:
         changes = _assembleTagList(deepdiff(self.tags, {**self.tags, **newTags}))
         print(changes)
+        # call boto tag change here
 
-    # @abstractmethod
-    # def update(self) -> bool:
-    #     pass
+    @abstractmethod
+    def create(self, **kwargs) -> Optional[Self]:
+        pass
 
-    # @abstractmethod
-    # def create(self) -> bool:
-    #     pass
+    @abstractmethod
+    def update(self, **kwargs) -> Optional[Self]:
+        pass
 
-    # @abstractmethod
-    # def destroy(self) -> bool:
-    #     pass
+    @abstractmethod
+    def destroy(self, **kwargs) -> bool:
+        pass
 
-    # @property
-    # def raw_data(self) -> dict:
-    #     return self._describeData
+    @abstractmethod
+    def refresh(self, **kwargs) -> Self:
+        pass
 
     def print(self, **kwargs) -> None:
         output = kwargs["output"] if "output" in kwargs else self._session.output
@@ -242,59 +270,71 @@ class _resource(ABC):
             cUtils.dumpJson(self._describeData)
         else:
             if header:
-                _printTableHeader(self._displayFields, self._displayFieldProps)
-            _printTableLine(self, self._displayFields, self._displayFieldProps, truncate=truncate)
+                _printTableHeader(self._displayFieldOrder, self._displayFieldProps)
+            _printTableLine(self, self._displayFieldOrder, self._displayFieldProps, truncate=truncate)
+
+    def _describeDataProp(self, propName: str) -> Optional[str]:
+        """fetch data based on factors such as existance, defunct-ness, etc..."""
+        return (
+            self._describeData[propName] if self.exists and not self.isDefunct and self._describeData.get(propName) else None
+        )
 
 
 # Collection of AWS resource (abstract)
 class _resources(ABC):
-    _resources = []
+    _resourcesList = []
+    _region = None
 
     def __init__(self, **kwargs) -> None:
         self._resourceCache = resourceCache(self.__class__.__name__)
         self._session = session.sessionSettings()
 
     def __iter__(self):
-        return iter(self._resources)
+        return iter(self._resourcesList)
 
     def __getitem__(self, item):
-        return self._resources[item]
+        return self._resourcesList[item]
 
     def __len__(self):
-        return len(self._resources)
+        return len(self._resourcesList)
 
     @abstractmethod
-    def fetch(self, filter: dict = {}, **kwargs):  # returns self
+    def fetch(self, filter: dict = {}, **kwargs) -> Self:
         pass
 
     def findOne(self, nameOrIdToFind: str) -> Optional[_resource]:
-        resourceL = [r for r in self._resources if r.id == nameOrIdToFind or r.name == nameOrIdToFind]
+        resourceL = [r for r in self._resourcesList if r.id == nameOrIdToFind or r.name == nameOrIdToFind]
         if len(resourceL) > 1:
-            print(f"warn: findOne() returned {len(resourceL)} resources matching {nameOrIdToFind}", sys.stdout)
+            print(f"warn: findOne() returned {len(resourceL)} resources matching '{nameOrIdToFind}'", sys.stdout)
+        elif not len(resourceL):
+            print(f"error: findOne() found nothing matching '{nameOrIdToFind}'", sys.stdout)
+            exit(1)
         return resourceL[0] if len(resourceL) > 0 else None
-
-    # def findSome(self, filter: dict) -> list:  # list of 'resource'
-    #     pass
 
     @property
     def isEmpty(self) -> bool:
-        return bool(not len(self._resources))
+        return bool(not len(self._resourcesList))
 
     @property
     def resourceIdsByName(self) -> dict:
-        return {r.name: r.id for r in self._resources if r.name}
+        return {r.name: r.id for r in self._resourcesList if r.name}
+
+    @property
+    def region(self) -> Optional[str]:
+        return self._region
 
     def print(self, **kwargs) -> None:
         output = kwargs["output"] if "output" in kwargs else self._session.output
         truncate = kwargs["truncate"] if "truncate" in kwargs else True
         header = kwargs["header"] if "header" in kwargs else True
-        if not len(self._resources):
+        if not len(self._resourcesList):
             print("no data")
             return
         d = []
-        for r in self._resources:
-            if header and output == session.outputFormat.TABLE:
-                _printTableHeader(r._displayFields, r._displayFieldProps)  # bad - private vars
+        r: _resource
+        for r in self._resourcesList:
+            if header and output == session.outputFormat.TEXT:
+                _printTableHeader(r._displayFieldOrder, r._displayFieldProps)  # bad - private vars
                 header = False
             if output == session.outputFormat.JSON:
                 d.append(r._describeData)  # bad - private vars
@@ -305,17 +345,20 @@ class _resources(ABC):
 
 
 # ------------------------------------------------------------------------------------------------
-# class subnet(resource):
-#     resourceType = "subnet"
+
+# class security_group(resource):
+#     resourceType = "security_group"
 
 
-# class subnets(resources):
-#     resourceType = "subnets"
+# class security_groups(resources):
+#     resourceType = "security_groups"
 
-#     def __init__(self) -> None:
+#     def __init__(self):
 #         super().__init__()
 #         for r in self._resourceCache.get(self.resourceType):
-#             self._resources.append(subnet(r))
+#             self._resources.append(security_group(r))
+
+# ---------------------------
 
 
 # class route(resource):
@@ -323,7 +366,6 @@ class _resources(ABC):
 
 # class routes(resources):
 # 	resourceType = "routes"
-
 
 # class route_table(resource):
 #     resourceType = "route_table"
@@ -340,18 +382,7 @@ class _resources(ABC):
 #         for r in self._resourceCache.get(self.resourceType):
 #             self._resources.append(route_table(r))
 
-
-# class security_group(resource):
-#     resourceType = "security_group"
-
-
-# class security_groups(resources):
-#     resourceType = "security_groups"
-
-#     def __init__(self):
-#         super().__init__()
-#         for r in self._resourceCache.get(self.resourceType):
-#             self._resources.append(security_group(r))
+# ---------------------------
 
 
 # class eip(resource):
@@ -359,7 +390,6 @@ class _resources(ABC):
 
 #     def __init__(self, resource, **kwargs) -> None:
 #         super().__init__(resource, **{**kwargs, "FirstClassProps": ["public_ip", "domain"]})
-
 
 # class eips(resources):
 #     resourceType = "eips"
@@ -369,6 +399,7 @@ class _resources(ABC):
 #         for r in self._resourceCache.get(self.resourceType):
 #             self._resources.append(eip(r, id=r.allocation_id))
 
+# ---------------------------
 
 # class igw(resource):
 #     resourceType = "igw"
@@ -382,6 +413,7 @@ class _resources(ABC):
 #         for r in self._resourceCache.get(self.resourceType):
 #             self._resources.append(igw(r))
 
+# ---------------------------
 
 # class natgw(resource):
 #     resourceType = "natgw"
@@ -395,6 +427,7 @@ class _resources(ABC):
 #         for r in self._resourceCache.get(self.resourceType)["NatGateways"]:
 #             self._resources.append(natgw(r, id=r["NatGatewayId"]))
 
+# ---------------------------
 
 # class tgw(resource):
 #     resourceType = "tgw"
@@ -565,14 +598,30 @@ class _resources(ABC):
 #             self._resources.append(tgw_route_table(r, id=r["TransitGatewayRouteTableId"]))
 
 
+# ---------------------------
+
+
+# class subnet(resource):
+#     resourceType = "subnet"
+
+
+# class subnets(resources):
+#     resourceType = "subnets"
+
+#     def __init__(self) -> None:
+#         super().__init__()
+#         for r in self._resourceCache.get(self.resourceType):
+#             self._resources.append(subnet(r))
+
+
 class vpc(_resource):
     resourceType = resourceType.VPC
-    _displayFields = ["name", "vpcId", "cidrBlock"]
+    _displayFieldOrder = ["name", "vpcId", "cidrBlock"]
     _displayFieldProps = {"cidrBlock": {"width": 18}, "name": {"width": 25}, "vpcId": {"width": 21}}
 
     @property
     def id(self) -> Optional[str]:
-        return None if not self.exists else self._describeData["VpcId"]
+        return self._describeDataProp("VpcId")
 
     @property
     def vpcId(self) -> str:
@@ -580,7 +629,19 @@ class vpc(_resource):
 
     @property
     def cidrBlock(self) -> Optional[str]:
-        return None if not self.exists else self._describeData["CidrBlock"]
+        return self._describeDataProp("CidrBlock")
+
+    def refresh(self, **kwargs) -> Self:
+        pass
+
+    def update(self, **kwargs) -> bool:
+        pass
+
+    def create(self, **kwargs) -> bool:
+        pass
+
+    def destroy(self) -> bool:
+        pass
 
     # @property
     # def tgwAttachments(self) -> tgw_attachments:
@@ -591,39 +652,184 @@ class vpc(_resource):
 
 class vpcs(_resources):
 
-    def fetch(self, filter={}, **kwargs):
-        boto_opts = self._session.botoRequestOptions(**kwargs)
-        if not self._resourceCache.hasRegionalDataFor(boto_opts["region_name"]):
-            d = boto3.client("ec2", **boto_opts).describe_vpcs()
-            self._resourceCache.replace(d["Vpcs"] if "Vpcs" in d else [], boto_opts["region_name"])
-        for r in self._resourceCache.regionalData(boto_opts["region_name"]):
-            self._resources.append(vpc(_describeData=r))
+    def fetch(self, filter={}, **kwargs) -> Self:
+        if not self._resourceCache.hasRegionalDataFor(self.region):
+            response = boto3.client("ec2", **{"region_name": self.region}).describe_vpcs()
+            if not _checkHttpResponse(response):
+                return self
+            self._resourceCache.replace(response["Vpcs"] if "Vpcs" in response else [], self.region)
+        r: _resource
+        for r in self._resourceCache.regionalData(self.region):
+            self._resourcesList.append(vpc(_describeData=r), self.region)
         return self
 
 
-# Secrets Manager
-# class secret(resource):
-#     resourceType = "secret"
-
-#     def __init__(self, resource, **kwargs) -> None:
-#         super().__init__(resource, **{**kwargs, "FirstClassProps": ["associations", "routes"]})
+# ---------------------------
 
 
-# class secrets(resources):
-#     resourceType = "secrets"
+class secretType(Enum):
+    SIMPLE = 1
 
-#     def __init__(self) -> None:
-#         super().__init__()
-#         for r in self._resourceCache.get(self.resourceType):
-#             cUtils.dumpJson(r)
-#             self._resources.append(subnet(r))
+
+class secret(_resource):
+    resourceType = resourceType.SECRET
+    _displayFieldOrder = ["name", "uniq", "last_changed", "desc"]
+    _displayFieldProps = {"name": {"width": 30}, "uniq": {"width": 6}, "desc": {"width": 50}, "last_changed": {"width": 23}}
+    _props = {"name": str, "desc": str, "value": str, "type": secretType}
+
+    @property
+    def id(self) -> Optional[str]:
+        return self._describeDataProp("ARN")
+
+    @property
+    def desc(self) -> Optional[str]:
+        return self._describeDataProp("Description")
+
+    @property
+    def arn(self) -> Optional[str]:
+        return self.id
+
+    @property
+    def uniq(self) -> Optional[str]:
+        return self.arn[-6:] if self.arn else None
+
+    @property
+    def last_changed(self) -> Optional[str]:
+        lcd = self._describeDataProp("LastChangedDate")
+        return None if not lcd else f"{cUtils.convertToUtcStandardFormat(lcd)}"
+
+    def refresh(self, **kwargs) -> Self:
+        if hasattr(self, "_describeData"):
+            self._details = None
+            self._describeData = self.details
+        if hasattr(self, "__value"):
+            self.__value = None
+            self.value
+        return self
+
+    def create(self, **kwargs) -> Optional[Self]:
+        if self.exists or self.isDefunct:
+            print("Cannot create resource if it exists or is defunct.", file=sys.stderr)
+            return None
+        if self._newData.get("type") == secretType.SIMPLE:
+            if not self._newData.get("name") or not self._newData.get("desc") or not self._newData.get("value"):
+                print("name, desc and value all required to create a simple secret", file=sys.stderr)
+                return False
+            response = boto3.client("secretsmanager", **{"region_name": self.region}).create_secret(
+                Name=self._newData["name"],
+                Description=self._newData["desc"],
+                SecretString=self._newData["value"],
+                Tags=[
+                    {"Key": "Name", "Value": self._newData["name"]},
+                ],
+            )
+            if response.get("ResponseMetadata") != 200:
+                cUtils.dumpJson(response, outputStream=sys.stderr)
+                return None
+            self._exists = True
+        else:
+            print("don't know how to create type")
+            return None
+        return self.refresh()
+
+    def update(self, **kwargs) -> Optional[Self]:
+        if not self.exists or self.isDefunct:
+            print("secret not yet created or is defunct", file=sys.stderr)
+            return None
+        if kwargs.get("value"):
+            response = boto3.client("secretsmanager", **{"region_name": self.region}).put_secret_value(
+                SecretId=self.arn,
+                SecretString=kwargs["value"],
+            )
+            if not _checkHttpResponse(response):
+                return None
+            print(f"stored version {response['VersionId']}")
+        if kwargs.get("desc"):
+            response = boto3.client("secretsmanager", **{"region_name": self.region}).update_secret(
+                SecretId=self.arn,
+                Description=kwargs["desc"],
+            )
+            cUtils.dumpJson(response)
+            if not _checkHttpResponse(response):
+                return None
+        return self.refresh()
+
+    def destroy(self) -> bool:
+        if not self.exists or self.isDefunct:
+            print("secret not yet created or is defunct", file=sys.stderr)
+            return False
+        response = boto3.client("secretsmanager", **{"region_name": self.region}).delete_secret(
+            SecretId=self.arn, RecoveryWindowInDays=7
+        )
+        print(f"DeletionDate: {response['DeletionDate']}")
+        self._exists = False
+        self._defunct = True
+        return True
+
+    @property
+    def details(self) -> dict:
+        if not hasattr(self, "_details"):
+            response = boto3.client("secretsmanager", **{"region_name": self.region}).describe_secret(SecretId=self.arn)
+            if not _checkHttpResponse(response):
+                return {}
+            self._details = response
+        return self._details
+
+    @property
+    def _value(self) -> dict:
+        if not hasattr(self, "__value"):
+            response = boto3.client("secretsmanager", **{"region_name": self.region}).get_secret_value(SecretId=self.arn)
+            if not _checkHttpResponse(response):
+                return {}
+            self.__value = response
+        return self.__value
+
+    @property
+    def value(self) -> str:
+        return self._value["SecretString"]
+
+    @property
+    def valueDetails(self) -> dict:
+        return self._value
+
+
+class secrets(_resources):
+
+    def fetch(self, filter={}, **kwargs) -> Self:
+        boto_opts = self._session.botoRequestOptions(**kwargs)
+        if not self._resourceCache.hasRegionalDataFor(self.region):
+            response = boto3.client("secretsmanager", **boto_opts).list_secrets(
+                IncludePlannedDeletion=False,
+                SortOrder="asc",
+            )
+            if not _checkHttpResponse(response):
+                return self
+            self._resourceCache.replace(response.get("SecretList") or [], self.region)
+        r: _resource
+        for r in self._resourceCache.regionalData(self.region):
+            self._resourcesList.append(secret(_describeData=r))
+        return self
+
+    def findOne(self, nameToFind: str) -> Optional[_resource]:
+        resourceL = [r for r in self._resourcesList if r.id == nameToFind or r.name == nameToFind or nameToFind in r.arn]
+        if len(resourceL) > 1:
+            print(f"warn: findOne() returned {len(resourceL)} resources matching '{nameToFind}'", sys.stdout)
+        elif not len(resourceL):
+            print(f"error: findOne found nothing matching '{nameToFind}'")
+            exit(1)
+        return resourceL[0] if len(resourceL) > 0 else None
+
+
+# ---------------------------
 
 
 class resourceFactory:
 
     @staticmethod
-    def new(r: resourceType) -> _resource:
-        if r == resourceType.VPC:
-            return vpc()
+    def new(r: resourceType, **kwargs) -> _resource:
+        if r == resourceType.SECRET:
+            return secret(**kwargs)
+        # elif r == resourceType.VPC:
+        #     return secret(**kwargs)
         print("resourceFactory doesn't know how to create a", r, file=sys.stderr)
         exit(1)
