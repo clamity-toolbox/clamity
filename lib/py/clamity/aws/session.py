@@ -27,7 +27,7 @@ class Singleton(type):
 class sessionSettings(metaclass=Singleton):
     debug: bool = False
     verbose: bool = False
-    _output: outputFormat = outputFormat.JSON
+    _output: outputFormat = outputFormat.TEXT
 
     @property
     def default_region(self) -> Optional[str]:

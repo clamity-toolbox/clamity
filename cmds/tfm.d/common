@@ -13,17 +13,17 @@ function check_all_common_files_in_module {
 	local rootModuleDir="$1" action="$2"
 
 	pushd "$rootModuleDir" >/dev/null
-	[ `ls common-*.tf 2>/dev/null|wc -l` -eq 0 ] && popd >/dev/null && return 0  # no common files present
+	[ $(ls common-*.tf 2>/dev/null | wc -l) -eq 0 ] && popd >/dev/null && return 0 # no common files present
 	local commonDir="$(cd ../../common && pwd)"
 	local file filesToCopy=""
 
 	for file in common-*.tf; do
 		[ ! -f "$commonDir/$file" ] && echo "    $commonDir/$file not found (remove 'common-' from this file name)" && continue
-		[ `diff $file "$commonDir/$file" | wc -l` -eq 0 ] && echo "    $file ok" && continue
+		[ $(diff $file "$commonDir/$file" | wc -l) -eq 0 ] && echo "    $file ok" && continue
 		echo "    $file differs" && filesToCopy="$filesToCopy $file"
 	done
 
-	for file in "$commonDir"/common-*.tf; do [ ! -f "`basename $file`" ] && echo "    $(basename $file) not present"; done
+	for file in "$commonDir"/common-*.tf; do [ ! -f "$(basename $file)" ] && echo "    $(basename $file) not present"; done
 
 	[ -z "$action" ] && popd >/dev/null && { [ -z "$filesToCopy" ] && return 0 || return 1; }
 	for file in $filesToCopy; do
@@ -52,8 +52,17 @@ function iterate_through_common_files {
 
 function new_state_group {
 	local stateDir="$1"
-	_ask "Setup new state group `basename $stateDir` (y/N)? " || return 1
+	_ask "Setup new state group $(basename $stateDir) (y/N)? " || return 1
 	_run mkdir $stateDir || return 1
+	local res=""
+	if [ ! -f "$stateDir/config.tfbackend" ]; then
+		_echo "$stateDir/config.tfbackend needs to be created."
+		while [ -z "$res" -o -z "$reg" ]; do
+			_echo -n "resource prefix (eg. pkt-5-123456788): " && read res
+			_echo -n "AWS state region: " && read reg
+		done
+		echo -e "\nbucket = \"$res-tfstate\"\nregion = \"$reg\"\ndynamodb_table = \"$res-tflocks\"\nencrypt = true" >$stateDir/config.tfbackend
+	fi
 }
 
 function new_root_module {
@@ -125,14 +134,18 @@ module \"$mod\" {
 subcmd="$1" && shift
 
 case "$subcmd" in
-	report)
-		 iterate_through_common_files || exit 1;;
-	update)
-		[ ! -f ../../common/common-providers.tf ] && _warn "you must run this command from within a root module directory" && exit 1
-		iterate_through_common_files update || exit 1;;
-	new-root)
-		new_root_module "$@" || exit 1;;
-	*)
-		common_usage && exit 1;;
+report)
+	iterate_through_common_files || exit 1
+	;;
+update)
+	[ ! -f ../../common/common-providers.tf ] && _warn "you must run this command from within a root module directory" && exit 1
+	iterate_through_common_files update || exit 1
+	;;
+new-root)
+	new_root_module "$@" || exit 1
+	;;
+*)
+	common_usage && exit 1
+	;;
 esac
 exit 0
