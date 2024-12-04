@@ -1,4 +1,3 @@
-
 # desc: provides exteneded capabilities to the aws command line utility
 
 # THIS FILE IS SOURCED INTO, AND THEREFORE MUTATES, THE CURRENT SHELL
@@ -17,8 +16,7 @@ __Abstract="
 "
 
 __Usage="
-	clamity $cmd { whoami | assume-role } [options]
-	clamity $cmd whoami
+	clamity $cmd { whoami | assume-role | profile [<profile>] } [options]
 	clamity $cmd { aws-cmd-and-args }
 "
 
@@ -26,18 +24,35 @@ __CommandOptions=""
 
 customCmdDesc="
 \n\twhoami - aws sts get-caller-identity
+\n\tprofile - alias for 'clamity env aws-profile'
 "
 
-[ -z "$subcmd" ] && { _brief_usage "$customCmdDesc" "$subcmd"; return 1; }
-[ "$subcmd" = help ] && { _man_page "$customCmdDesc" "$cmd"; return 1; }
+[ -z "$subcmd" ] && {
+	_brief_usage "$customCmdDesc" "$subcmd"
+	return 1
+}
+[ "$subcmd" = help ] && {
+	_man_page "$customCmdDesc" "$cmd"
+	return 1
+}
 
 _cmd_exists aws || _warn "aws command not found"
-_cmds_needed aws || { _error "unable to run aws CLI"; return 1; }
+_cmds_needed aws || {
+	_error "unable to run aws CLI"
+	return 1
+}
 
 case "$subcmd" in
-	whoami) aws sts get-caller-identity; return $?;;
+whoami)
+	aws sts get-caller-identity
+	return $?
+	;;
+profile)
+	clamity env aws-profile "$@"
+	return $?
+	;;
 esac
 
-# aws sts assume-role --role-arn "arn:aws:iam::12345678:role/OrganizationAccountAccessRole" --role-session-name aws	
+# aws sts assume-role --role-arn "arn:aws:iam::12345678:role/OrganizationAccountAccessRole" --role-session-name aws
 _vecho "passing command thru to the aws cli..."
 _run aws "$subcmd" "$@"

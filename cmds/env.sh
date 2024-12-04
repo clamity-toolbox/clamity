@@ -1,15 +1,9 @@
-
-# desc: mutate the shell's environment
+# desc: mutate the shell's environment in useful ways
 
 # THIS FILE IS SOURCED INTO, AND THEREFORE MUTATES, THE CURRENT SHELL
 # supported shells: bash, zsh
 
 source $CLAMITY_ROOT/lib/_.sh || return 1
-
-cmd=shenv
-subcmd="$1"
-[ -n "$subcmd" ] && shift
-
 
 # ---------------------------------------------------------------------------
 # Define content for brief help and the manpage for this command. Comment out
@@ -26,6 +20,7 @@ __Abstract="
 # one or more lines detailing usage patterns (REQUIRED)
 __Usage="
 	clamity env activate-python
+	clamity env aws-profile [<profile-to-set>]
 "
 
 # Don't include common options here
@@ -70,11 +65,9 @@ __CustomSections=""
 # 	unset [default] <config-option>
 # 		Unsets an option (returning to its built in default state).
 
-
 # Showing examples for comman tasks proves to be very useful in man pages.
 __Examples=""
 # ---------------------------------------------------------------------------
-
 
 # ---------------------------------------------------------------------------
 # Locally implement sub command help
@@ -88,13 +81,33 @@ __Examples=""
 customCmdDesc=""
 # ---------------------------------------------------------------------------
 
+function _aws_profile {
+	[ -z "$1" ] && {
+		_run aws configure list-profiles
+		return $?
+	}
+	aws configure list-profiles 2>/dev/null | grep -q "^$1$" && _run export AWS_PROFILE="$1" && return 0
+	_error "bad profile: $1"
+	return 1
+}
 
-[ -z "$subcmd" ] && { _brief_usage "$customCmdDesc" "$subcmd"; return 1; }
-[ "$subcmd" = help ] && { _man_page "$customCmdDesc" "$cmd"; return 1; }
+cmd=env
+subcmd="$1"
+[ -n "$subcmd" ] && shift
+
+[ -z "$subcmd" ] && {
+	_brief_usage "$customCmdDesc" "$subcmd"
+	return 1
+}
+[ "$subcmd" = help ] && {
+	_man_page "$customCmdDesc" "$cmd"
+	return 1
+}
 
 # Execute sub-commands
 case "$subcmd" in
-	activate-python) eval `$CLAMITY_ROOT/bin/clam-py activate`;;
-	*) _warn "unknown sub-command $subcmd. Try 'help'." && return 1;;
+activate-python) eval $($CLAMITY_ROOT/bin/clam-py activate) ;;
+aws-profile) _aws_profile "$@" ;;
+*) _warn "unknown sub-command $subcmd. Try 'help'." && return 1 ;;
 esac
 return 0

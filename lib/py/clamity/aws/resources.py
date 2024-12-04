@@ -674,7 +674,7 @@ class secretType(Enum):
 class secret(_resource):
     resourceType = resourceType.SECRET
     _displayFieldOrder = ["name", "uniq", "last_changed", "desc"]
-    _displayFieldProps = {"name": {"width": 30}, "uniq": {"width": 6}, "desc": {"width": 50}, "last_changed": {"width": 23}}
+    _displayFieldProps = {"name": {"width": 50}, "uniq": {"width": 6}, "desc": {"width": 50}, "last_changed": {"width": 23}}
     _props = {"name": str, "desc": str, "value": str, "type": secretType}
 
     @property

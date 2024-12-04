@@ -256,18 +256,14 @@ if [ -x "$CLAMITY_ROOT/cmds/tfm.d/$subcmd" ]; then
 		echo "AUDIT APPLY: $CLAMITY_ROOT/cmds/tfm.d/$subcmd" "$@" >AUDIT.log
 		script -a AUDIT.log "$CLAMITY_ROOT/cmds/tfm.d/$subcmd" "$@"
 		rc=$?
+	else
+		"$CLAMITY_ROOT/cmds/tfm.d/$subcmd" "$@"
+		rc=$?
 	fi
 	unset TFM_REPO_ROOT
 	_reset_aws_profile
 	return $rc
 fi
-
-[ -z "$subcmd" ] && {
-	_vecho "passing command thru to terraform..." && _run terraform "$subcmd" "$@"
-	rc=$?
-	_reset_aws_profile
-	return $?
-}
 
 rc=0
 case "$subcmd" in
@@ -279,6 +275,9 @@ settings) {
 } ;;
 state-report) {
 	_tfm_state_report "$@" || rc=1
+} ;;
+*) {
+	_vecho "passing command thru to terraform..." && _run terraform "$subcmd" "$@" || rc=1
 } ;;
 esac
 
