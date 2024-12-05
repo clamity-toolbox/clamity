@@ -1,7 +1,7 @@
 """Utility functions"""
 
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timezone, date
 import json
 
 
@@ -9,7 +9,7 @@ def dumpJson(d: any, outputStream=sys.stdout) -> None:
     """Dump a dictionary as JSON with sorted keys"""
 
     def jsonDateTimeHandler(x):
-        if isinstance(x, datetime) or isinstance(x, datetime.date):
+        if isinstance(x, datetime) or isinstance(x, date):
             return x.isoformat()
         return str(type(x))
 

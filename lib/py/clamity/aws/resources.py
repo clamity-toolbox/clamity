@@ -9,6 +9,7 @@ import sys
 import boto3
 import deepdiff
 import clamity.core.utils as cUtils
+import clamity.core.options as cOptions
 from . import session
 
 
@@ -75,7 +76,7 @@ class resourceCache:
         self._resourceClassName = resourceClassName
         if resourceClassName not in _resourceCacheData:
             _resourceCacheData[resourceClassName] = {}
-        self._data = _resourceCacheData
+        self._data = _resourceCacheData[resourceClassName]
 
     @property
     def data(self) -> None:
@@ -163,12 +164,9 @@ class resourceType(Enum):
 
 # One AWS resource (abstract)
 class _resource(ABC):
-    _defunct = False  # True if destroy() is called
-    _exists = False
-    _describeData = {}
-    _newData = {}
+    session = session.sessionSettings()
+    options = cOptions.CmdOptions()
     _props = {}  # allow for prototyping properties when creating new instance
-    _region = None
 
     # these should be attributes -  is there a better way to abstract them?
     @property
@@ -187,9 +185,13 @@ class _resource(ABC):
         pass
 
     def __init__(self, **kwargs) -> None:
-        self._session = session.sessionSettings()
+        self._defunct = False  # True if destroy() is called
+        self._exists = False
+        self._describeData = {}
+        self._newData = {}
+        self._region = None
         if "_describeData" in kwargs:
-            self._region = kwargs.get("region") or self._session.default_region
+            self._region = kwargs.get("region") or self.session.default_region
             self._exists = True
             self._describeData = kwargs["_describeData"]
         elif kwargs.get("props"):
@@ -206,7 +208,7 @@ class _resource(ABC):
 
     @property
     def isDefunct(self) -> bool:
-        if self._session.debug and self._defunct:
+        if self.session.debug and self._defunct:
             print(f"debug: reporting defunct resource {self.id}", file=sys.stderr)
         return self._defunct
 
@@ -263,10 +265,10 @@ class _resource(ABC):
         pass
 
     def print(self, **kwargs) -> None:
-        output = kwargs["output"] if "output" in kwargs else self._session.output
+        output = kwargs["output"] if "output" in kwargs else self.options.args.output_format
         truncate = kwargs["truncate"] if "truncate" in kwargs else True
         header = kwargs["header"] if "header" in kwargs else True
-        if output == session.outputFormat.JSON:
+        if output == cOptions.outputFormat.JSON:
             cUtils.dumpJson(self._describeData)
         else:
             if header:
@@ -282,12 +284,13 @@ class _resource(ABC):
 
 # Collection of AWS resource (abstract)
 class _resources(ABC):
-    _resourcesList = []
-    _region = None
+    session = session.sessionSettings()
+    options = cOptions.CmdOptions()
 
     def __init__(self, **kwargs) -> None:
         self._resourceCache = resourceCache(self.__class__.__name__)
-        self._session = session.sessionSettings()
+        self._resourcesList = []
+        self._region = None
 
     def __iter__(self):
         return iter(self._resourcesList)
@@ -305,9 +308,9 @@ class _resources(ABC):
     def findOne(self, nameOrIdToFind: str) -> Optional[_resource]:
         resourceL = [r for r in self._resourcesList if r.id == nameOrIdToFind or r.name == nameOrIdToFind]
         if len(resourceL) > 1:
-            print(f"warn: findOne() returned {len(resourceL)} resources matching '{nameOrIdToFind}'", sys.stdout)
+            print(f"warn: findOne() returned {len(resourceL)} resources matching '{nameOrIdToFind}'", file=sys.stderr)
         elif not len(resourceL):
-            print(f"error: findOne() found nothing matching '{nameOrIdToFind}'", sys.stdout)
+            print(f"error: findOne() found nothing matching '{nameOrIdToFind}'", file=sys.stderr)
             exit(1)
         return resourceL[0] if len(resourceL) > 0 else None
 
@@ -324,7 +327,7 @@ class _resources(ABC):
         return self._region
 
     def print(self, **kwargs) -> None:
-        output = kwargs["output"] if "output" in kwargs else self._session.output
+        output = kwargs["output"] if "output" in kwargs else self.options.args.output_format
         truncate = kwargs["truncate"] if "truncate" in kwargs else True
         header = kwargs["header"] if "header" in kwargs else True
         if not len(self._resourcesList):
@@ -333,14 +336,14 @@ class _resources(ABC):
         d = []
         r: _resource
         for r in self._resourcesList:
-            if header and output == session.outputFormat.TEXT:
+            if header and output == cOptions.outputFormat.TEXT:
                 _printTableHeader(r._displayFieldOrder, r._displayFieldProps)  # bad - private vars
                 header = False
-            if output == session.outputFormat.JSON:
+            if output == cOptions.outputFormat.JSON:
                 d.append(r._describeData)  # bad - private vars
             else:
                 r.print(truncate=truncate, header=False, output=output)
-        if output == session.outputFormat.JSON:
+        if output == cOptions.outputFormat.JSON:
             cUtils.dumpJson(d)
 
 
@@ -796,8 +799,8 @@ class secret(_resource):
 class secrets(_resources):
 
     def fetch(self, filter={}, **kwargs) -> Self:
-        boto_opts = self._session.botoRequestOptions(**kwargs)
         if not self._resourceCache.hasRegionalDataFor(self.region):
+            boto_opts = self.session.botoRequestOptions(**kwargs)
             response = boto3.client("secretsmanager", **boto_opts).list_secrets(
                 IncludePlannedDeletion=False,
                 SortOrder="asc",
@@ -813,9 +816,9 @@ class secrets(_resources):
     def findOne(self, nameToFind: str) -> Optional[_resource]:
         resourceL = [r for r in self._resourcesList if r.id == nameToFind or r.name == nameToFind or nameToFind in r.arn]
         if len(resourceL) > 1:
-            print(f"warn: findOne() returned {len(resourceL)} resources matching '{nameToFind}'", sys.stdout)
+            print(f"warn: findOne() returned {len(resourceL)} resources matching '{nameToFind}'", file=sys.stderr)
         elif not len(resourceL):
-            print(f"error: findOne found nothing matching '{nameToFind}'")
+            print(f"error: findOne found nothing matching '{nameToFind}'", file=sys.stderr)
             exit(1)
         return resourceL[0] if len(resourceL) > 0 else None
 
