@@ -2,11 +2,72 @@
 
 # desc: secrets store operations
 
+"""
+Manage data in the secrets store (AWS secretsmanager)
+
+synopsis:
+
+    CLI for managing data in AWS secrets manager. Also provides an integration with a
+    secrets schema to ensure data is stored in standard locations for tying into CI/CD
+    pipelines.
+
+"""
+
 import sys
 import os
 from clamity.core.options import CmdOptions
 import clamity.core.utils as cUtils
 from clamity import aws
+import argparse
+
+Usage = """
+    clamity secrets { list | help }
+    clamity secrets add --name secret/path/and/name --desc "useful desc" --value "supersecret"
+    clamity secrets { read | details | delete } --name secret/path/and/name
+    clamity secrets update --name secret/path/and/name [--desc "updated desc"] [--value "newsecret"]
+"""
+
+ActionsAndSupplemental = """
+actions:
+
+    add      Add new secrets to the secrets store
+    delete   Delete secrets from the secrets store
+    details  Display the AWS API response (in JSON) for secret details
+    help     Full help
+    list     List the secrets
+    read     Return the value of a secret
+    update   Update a secret's description or value
+
+standard storage conventions:
+
+    Secret names follow conventions to integration with IAM policies and CI/CD
+    pipelines (such as terraform). They're categorized accordingly. A search
+    path is typically used in development to accomodate developers who have
+    more restricted write capabilities. The search path defaults to ['devs/', ''].
+    Developers can write to 'certs/devs/...', 'secrets/devs/...', etc... but
+    can read from the larger scope of 'certs/...', 'secrets/...'.
+
+    TLS Certificates:
+        certs/[search-path]<domainName>/{key|crt|ca}
+
+    Secrets for services:
+        services/[search-path]<serviceName>/<app-env>/<secretName>
+
+    SSH Keys for services:
+        services/[search-path]<serviceName>/<app-env>/ssh-keys/<keyName>/{public|private}
+
+    Providers:
+        providers/[search-path]<providerName>/<app-env>/<provider-specific-organization>
+
+    Individual users' secrets:
+        users/<aws-user-id>/<anything>
+
+    Individual users' ssh keys:
+        users/<aws-user-id>/ssh-keys/<keyName>/{public|private}
+
+examples:
+    Need some examples here.
+"""
 
 
 def secrets_schema():
@@ -20,19 +81,23 @@ def secrets_schema():
         exit(1)
 
 
-argparser = CmdOptions(description="Work with the secrets store")
-argparser.add_common_args()
-argparser.add_argument("action", choices=["list", "delete", "update", "add", "read", "details"], help="work to perform")
-argparser.add_argument("--desc", type=str, help="secret description")
-argparser.add_argument("--value", type=str, help="secret value (the secret itself)")
-argparser.add_argument("--name", type=str, help="secret path and name (secret store key)")
-
+options = CmdOptions().parser(
+    description=__doc__,
+    usage=Usage,
+    epilog=ActionsAndSupplemental,
+    formatter_class=argparse.RawTextHelpFormatter,
+)
+options.add_common_args()
+options.add_argument("action", choices=["list", "delete", "update", "add", "read", "details", "help"], help="action to take")
+options.add_argument("--desc", type=str, help="useful description of the secret (possibly a URL)")
+options.add_argument("--value", type=str, help="the secret's value")
+options.add_argument("--name", type=str, help="secret's path and name (secret store key)")
 
 if len(sys.argv) == 1:
-    argparser.print_usage()
+    options.print_usage()
     exit(1)
 
-opts = argparser.parse()
+opts = options.parse(help="action")
 
 match opts.action:
     case "list":
@@ -83,7 +148,7 @@ match opts.action:
         )
 
     case "_":
-        argparser.print_usage()
+        options.print_usage()
         exit(1)
 
 exit(0)

@@ -4,6 +4,7 @@ core/options.py
 
 import argparse
 from enum import Enum
+from typing import Self
 
 
 class outputFormat(Enum):
@@ -23,12 +24,20 @@ class Singleton(type):
         return self._instances[self]
 
 
-class CmdOptions(argparse.ArgumentParser, metaclass=Singleton):
-    args = None
+class CmdOptions(metaclass=Singleton):
+    # def __init__(self, *args, **kwargs):
+    #     # print("IAM HERE")
+    #     # print(*args, **kwargs)
+    #     # Call the base class initializer
+    #     # print(kwargs)
+    #     super().__init__(*args, **kwargs)
 
-    def __init__(self, *args, **kwargs):
-        # Call the base class initializer
-        super().__init__(*args, **kwargs)
+    def parser(self, *args, **kwargs) -> Self:
+        self._argparser = argparse.ArgumentParser(*args, **kwargs)
+        return self
+
+    def add_argument(self, *args, **kwargs) -> None:
+        self._argparser.add_argument(*args, **kwargs)
 
     def add_common_args(self):
         self.add_argument("-d", "--debug", action="store_true", default=False, help="debug output")
@@ -47,13 +56,22 @@ class CmdOptions(argparse.ArgumentParser, metaclass=Singleton):
             help="json, text (default) or csv",
         )
 
-    def parse(self):
-        self.args = self.parse_args()
+    def print_usage(self) -> None:
+        self._argparser.print_usage()
+
+    def print_help(self) -> None:
+        self._argparser.print_help()
+
+    def parse(self, **kwargs):
+        self.args = self._argparser.parse_args()
         self.args.output_format = (
             outputFormat.TEXT
             if self.args.output_format == "text"
             else outputFormat.JSON if self.args.output_format == "json" else outputFormat.CSV
         )
+        if "help" in kwargs and getattr(self.args, kwargs["help"]) == "help":
+            self.print_help()
+            exit(1)
         return self.args
 
     # def add_custom_argument(self, name, **kwargs):

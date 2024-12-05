@@ -26,7 +26,10 @@ class sessionSettings(metaclass=cOptions.Singleton):
     def botoRequestOptions(self, **kwargs) -> dict:
         request_region = kwargs["region"] if "region" in kwargs else self.default_region
         if not request_region:
-            print("could not determine region", file=sys.stderr)
+            print(
+                "Could not determine region. Are you logged in (aws sso login --profile <prof>)? Is your profile set (export AWS_PROFILE=<prof>)?",  # noqa
+                file=sys.stderr,
+            )
             exit(1)
         return {"region_name": request_region}
 
