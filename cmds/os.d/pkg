@@ -6,8 +6,8 @@
 
 source $CLAMITY_ROOT/lib/_.sh || exit 1
 
-cmd="`dirname $0|rev|cut -f1 -d/|rev|cut -f1 -d.`"  # shcmd-template
-subcmd="`basename $0`"                              # subcmd-template
+cmd="$(dirname $0 | rev | cut -f1 -d/ | rev | cut -f1 -d.)" # shcmd-template
+subcmd="$(basename $0)"                                     # subcmd-template
 
 # ------------------------------------------------
 __Abstract="
@@ -46,7 +46,6 @@ __Examples="
 		clamity os pkg installed readline
 "
 
-
 # If you define sub-commands in this script or external to the $cmd.d/ dir, add
 # them to 'customCmdDesc'. Note how each command is on its own line prefixed
 # with '\n\t'.
@@ -60,9 +59,6 @@ customCmdDesc="
 "
 # ------------------------------------------------
 
-
-
-
 function get_pkg_mgr {
 	[ "$CLAMITY_os_preferred_pkg_mgr" == brew ] && which brew >/dev/null 2>&1 && echo brew && return
 	[ "$CLAMITY_os_preferred_pkg_mgr" == brew ] && _warn "your preferred pkg mgr is homebrew but 'brew' isn't in your search path" && return
@@ -72,21 +68,19 @@ function get_pkg_mgr {
 }
 
 function set_pkg_mgr_to {
-	# _run $CLAMITY_ROOT/bin/run-clamity config set os_preferred_pkg_mgr $1
+	echo "OVER HERE"
 	_run $CLAMITY_ROOT/bin/run-clamity config set default os_preferred_pkg_mgr $1
 }
 
 function select_macos_pkg_mgr {
 	which port >/dev/null 2>&1 && local macports=1 || local macports=0
 	which brew >/dev/null 2>&1 && local homebrew=1 || local homebrew=0
-	[ $macports -eq 0  -a  $homebrew -eq 0 ] && echo "Neither homebrew nor macports detected" && return 1
-	[ `expr $macports + $homebrew` -gt 1 ] && echo "several package managers detected"
+	[ $macports -eq 0 -a $homebrew -eq 0 ] && echo "Neither homebrew nor macports detected" && return 1
+	[ $(expr $macports + $homebrew) -gt 1 ] && echo "several package managers detected"
 	[ $macports -eq 1 ] && _ask "Do you want macports as your default pkg manager (y/N)? " && set_pkg_mgr_to port && return 0
 	[ $homebrew -eq 1 ] && _ask "Do you want homebrew as your default pkg manager (y/N)? " && set_pkg_mgr_to brew && return 0
 	return 1
 }
-
-
 
 # # return the preferred package manager to use (offer to select if need be)
 # function pkg_mgr {
@@ -108,8 +102,6 @@ function select_macos_pkg_mgr {
 # 	# [ -n "$CLAMITY_os_preferred_pkg_mgr" ] && { echo $CLAMITY_os_preferred_pkg_mgr | grep -q '^(brew|port|yum|apt)$' || { _error "pkg manager $CLAMITY_os_preferred_pkg_mgr is not suppoered"; return 1; }}
 # 	echo $CLAMITY_os_preferred_pkg_mgr
 # }
-
-
 
 # ---------- ABSTRACTED PACKAGES
 # pkg | min version | src {python|os} | brief desc
@@ -147,19 +139,18 @@ function is_abstracted_pkg {
 function install_abstracted_pkg {
 	local pkg="$1"
 	case "$pkg" in
-		aws)
-			[ "`_os`" != macos ] && _error "`_os` not supported for this command." && return 1
-			_run curl "https://awscli.amazonaws.com/AWSCLIV2.pkg" -o "/tmp/AWSCLIV2.pkg"
-			_run sudo installer -pkg /tmp/AWSCLIV2.pkg -target /
-			;;
-		*)
-			_warn "unknown abstracted package: $pkg"; return 1;;
+	aws)
+		[ "$(_os)" != macos ] && _error "$(_os) not supported for this command." && return 1
+		_run curl "https://awscli.amazonaws.com/AWSCLIV2.pkg" -o "/tmp/AWSCLIV2.pkg"
+		_run sudo installer -pkg /tmp/AWSCLIV2.pkg -target /
+		;;
+	*)
+		_warn "unknown abstracted package: $pkg"
+		return 1
+		;;
 	esac
 	return 0
 }
-
-
-
 
 # compare numeric versions using pure shell (blech)
 # strings:   { <num>[.<num>[.<num>[...]]] }
@@ -214,38 +205,43 @@ function install_abstracted_pkg {
 # 	return $rc
 # }
 
-
 function install_pkg {
 	local cmd="$1"
 	[ -z "$cmd" ] && _error "package missing. don't know what to install." && return 1
-	if [ -z "`get_pkg_mgr`" ]; then
-		echo "no preferred package manager selected."
+	if [ -z "$(get_pkg_mgr)" ]; then
+		echo "no preferred package manager selected"
 		select_macos_pkg_mgr
-		[ -z "`get_pkg_mgr`" ] && return 1
+		[ -z "$(get_pkg_mgr)" ] && return 1
 	fi
 	_ask "Install $cmd (y/N)? " || return 1
-	is_abstracted_pkg "$cmd" && { install_abstracted_pkg "$cmd"; return $?; }
+	is_abstracted_pkg "$cmd" && {
+		install_abstracted_pkg "$cmd"
+		return $?
+	}
 	case "$CLAMITY_os_preferred_pkg_mgr" in
-		port)
-			_run sudo port install $cmd || return 1
-			if [ `port installed | grep " ${cmd}_select "|wc -l` -eq 1 ]; then
-				# for packages that utilize 'port select', select the most recent
-				local whichPort=$(port select --summary|grep "^$cmd "| awk '{$1=$2=""; print $0}'|awk '{print $(NF-1)}')
-				[ -n "$whichPort" ] && _run sudo port select $cmd $whichPort || return 1
-			fi
-			;;
-		brew)
-			_run brew install $cmd || return 1;;
-		*)
-			_error "CLAMITY_os_preferred_pkg_mgr undefined or unknown ($CLAMITY_os_preferred_pkg_mgr)"
-			return 1;;
+	port)
+		_run sudo port install $cmd || return 1
+		if [ $(port installed | grep " ${cmd}_select " | wc -l) -eq 1 ]; then
+			# for packages that utilize 'port select', select the most recent
+			local whichPort=$(port select --summary | grep "^$cmd " | awk '{$1=$2=""; print $0}' | awk '{print $(NF-1)}')
+			[ -n "$whichPort" ] && _run sudo port select $cmd $whichPort || return 1
+		fi
+		;;
+	brew)
+		_run brew install $cmd || return 1
+		;;
+	*)
+		_error "CLAMITY_os_preferred_pkg_mgr undefined or unknown ($CLAMITY_os_preferred_pkg_mgr)"
+		return 1
+		;;
 	esac
 	return 0
 }
 
 function is_pkg_installed {
+	_trace "is_pkg_installed()> $*"
 	while [ -n "$1" ]; do
-		which "$1" >/dev/null 2>&1 && return 0  # if the command was found, return true regardless of source
+		which "$1" >/dev/null 2>&1 && return 0 # if the command was found, return true regardless of source
 		[ $CLAMITY_AskToInstall -eq 0 ] && return 1
 		install_pkg $1 || return 1
 		shift
@@ -256,24 +252,31 @@ function is_pkg_installed {
 function update_pkg_mgr {
 	[ -z "$CLAMITY_os_preferred_pkg_mgr" ] && _error "preferred_pkg_mgr not set" && return 1
 	case "$CLAMITY_os_preferred_pkg_mgr" in
-		port)
-			_run sudo port selfupdate || return 1
-			_run sudo port upgrade outdated || return 1
-			;;
-		brew)
-			_run brew update || return 1
-			_run brew upgrade || return 1
-			;;
-		*) _error "unknown package manager ($CLAMITY_os_preferred_pkg_mgr)" && return 1;;
+	port)
+		_run sudo port selfupdate || return 1
+		_run sudo port upgrade outdated || return 1
+		;;
+	brew)
+		_run brew update || return 1
+		_run brew upgrade || return 1
+		;;
+	*) _error "unknown package manager ($CLAMITY_os_preferred_pkg_mgr)" && return 1 ;;
 	esac
 }
 
-[ -z "$1" ] && { _brief_usage "$customCmdDesc" "$subcmd"; exit 1; }
-[ "$1" == help ] && { _sub_man_page "$customCmdDesc" "$subcmd"; exit 1; }
+[ -z "$1" ] && {
+	_brief_usage "$customCmdDesc" "$subcmd"
+	exit 1
+}
+[ "$1" == help ] && {
+	_sub_man_page "$customCmdDesc" "$subcmd"
+	exit 1
+}
 
 # For sub-commands that require actions (sub-sub-commands)
 action="$1" && shift
 
+_trace "pkg.sh> before parser" "$@" - CLAMITY_os_preferred_pkg_mgr=$CLAMITY_os_preferred_pkg_mgr
 
 # Simple shell options parser - includes common options
 # ---------------------------
@@ -281,20 +284,35 @@ action="$1" && shift
 #   CLAMITY_verbose="1"
 #   CLAMITY_optWithValue="sub-value"
 setup_clamity_options_parser \
-	AskToInstall    --ask-to-install   1  0
-	# optVarName    --opt-name    "<value-if-set>"  "<default>" \
-	# boolOpttName  --opt2-name   1                 0 \
-	# optWithValue  --val-opt     :                 ""       # : expects 1 arg
+	AskToInstall --ask-to-install 1 0
+# optVarName    --opt-name    "<value-if-set>"  "<default>" \
+# boolOpttName  --opt2-name   1                 0 \
+# optWithValue  --val-opt     :                 ""       # : expects 1 arg
+
+_trace "pkg.sh> after prep" "$@" - CLAMITY_os_preferred_pkg_mgr=$CLAMITY_os_preferred_pkg_mgr
 parse_clamity_options "$@"
-eval set -- $PARGS_POSITIONAL     # accomodates '--' for positional args
+_trace "pkg.sh> after parse" "$@" - CLAMITY_os_preferred_pkg_mgr=$CLAMITY_os_preferred_pkg_mgr
+
+eval set -- $PARGS_POSITIONAL # accomodates '--' for positional args
 # "$@" now represents positional args. CLAMITY_* vars set (and exported)
 
-
 case "$action" in
-	abstracted) list_abstracted; exit 1;;
-	install) install_pkg "$@"; exit $?;;
-	installed) is_pkg_installed "$@"; exit $?;;
-	selfupdate) update_pkg_mgr "$@"; exit $?;;
-	*) _error "unknown pkg command ($action)" && run-yadt clamity os pkg && exit 1;;
+abstracted)
+	list_abstracted
+	exit 1
+	;;
+install)
+	install_pkg "$@"
+	exit $?
+	;;
+installed)
+	is_pkg_installed "$@"
+	exit $?
+	;;
+selfupdate)
+	update_pkg_mgr "$@"
+	exit $?
+	;;
+*) _error "unknown pkg command ($action)" && run-yadt clamity os pkg && exit 1 ;;
 esac
 exit 0

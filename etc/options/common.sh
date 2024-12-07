@@ -1,28 +1,28 @@
-
 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 # These must be accounted for in options-parser.sh: __parse_common_options()
 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-function __c_opts_common_list {
-	echo "
-
-debug
-dryrun
-output_format
-quiet
-yes
-verbose
-
-" | grep -v ^$
-	return 0
+function __c_is_known_prop { # success if property is known
+	_trace "__c_is_known_prop()> checking '$*' against $(__c_clamity_known_props)"
+	echo "$(__c_clamity_known_props)" | grep -q "$1"
 }
 
-# other opts
-# ----------
+function __c_clamity_known_props {
+	echo "$(__c_opts_common_list) $(__c_opts_other_list)"
+}
+
+function __c_opts_common_list {
+	echo "debug  dryrun  output_format  quiet  yes  verbose  trace"
+}
+
+function __c_opts_other_list {
+	echo "disable_module_cache  os_preferred_pkg_mgr  aws_sso_session"
+}
+
+# other opts that cannot be overridden
+# ------------------------------------
 # output_redirection
 # logfile
-# disable_module_cache
-# os_preferred_pkg_mgr
 # cmds_path
 
 function __c_opts_common_help {

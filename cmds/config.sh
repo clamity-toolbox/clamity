@@ -1,15 +1,16 @@
-
 # desc: manage clamity configuration settings
 
 # THIS FILE IS SOURCED INTO, AND THEREFORE MUTATES, THE CURRENT SHELL
 # supported shells: bash, zsh
 
 source $CLAMITY_ROOT/lib/_.sh || return 1
+source $CLAMITY_ROOT/etc/options/common.sh || return 1
 
 cmd=config
 subcmd="$1"
 [ -n "$subcmd" ] && shift
 
+_trace "config.sh> CLAMITY_os_preferred_pkg_mgr=$CLAMITY_os_preferred_pkg_mgr"
 
 # ---------------------------------------------------------------------------
 # Define content for brief help and the manpage for this command. Comment out
@@ -111,7 +112,6 @@ SUPPORTED SHELLS
 # 	unset [default] <config-option>
 # 		Unsets an option (returning to its built in default state).
 
-
 # Showing examples for comman tasks proves to be very useful in man pages.
 __Examples="
 	Set verbose on by default (CLAMITY_verbose)
@@ -121,7 +121,6 @@ __Examples="
 		clamity config set debug 1
 "
 # ---------------------------------------------------------------------------
-
 
 # ---------------------------------------------------------------------------
 # Locally implement sub command help
@@ -140,11 +139,9 @@ customCmdDesc="
 "
 # ---------------------------------------------------------------------------
 
-
-
 function _c_show_config_settings {
-	DefaultCfgFile="`_defaults DefaultsFile`"
-	[ -z "$1" ] && echo -e "\nEnvironment Variables\n---------------------" && env|grep ^CLAMITY_|sort && return 0
+	DefaultCfgFile="$(_defaults DefaultsFile)"
+	[ -z "$1" ] && echo -e "\nEnvironment Variables\n---------------------" && env | grep ^CLAMITY_ | sort && return 0
 	[ "$1" = "defaults" -o "$1" = "default" ] || { _warn "usage: clamity config show [defaults]" && return 1; }
 	[ ! -f "$DefaultCfgFile" ] && echo "No defaults defined" && return 0
 	echo -e "\nDefaults from $DefaultCfgFile:\n---------------------------" && cat $DefaultCfgFile || return 1
@@ -160,9 +157,9 @@ function _c_set_var {
 	local prop="$1" val="$2" setDefault="$3"
 	# echo "export CLAMITY_$prop=\"$val\""
 	local eVar="CLAMITY_$prop"
-	eval `echo "export $eVar=$val"`   # update the current shell's env
+	eval $(echo "export $eVar=$val") # update the current shell's env
 	# eval `echo export $prop="$val"`
-	[ $setDefault -eq 0 ] && env|grep "^$eVar=" && return 0
+	[ $setDefault -eq 0 ] && env | grep "^$eVar=" && return 0
 
 	# Save as default setting
 	[ ! -d $CLAMITY_HOME/config ] && { mkdir -p $CLAMITY_HOME/config || return 1; }
@@ -173,9 +170,12 @@ function _c_set_var {
 	else
 		# backup pre-existing config and update
 		cp -p "$DefaultCfgFile" "$DefaultCfgFile.undo" || return 1
-		(grep -v "$eVar=" $DefaultCfgFile.undo; echo "$eVar=$val")|sort >$DefaultCfgFile || return 1
+		(
+			grep -v "$eVar=" $DefaultCfgFile.undo
+			echo "$eVar=$val"
+		) | sort >$DefaultCfgFile || return 1
 	fi
-	echo "`grep ^$eVar= $DefaultCfgFile` (defaulted)"
+	echo "$(grep ^$eVar= $DefaultCfgFile) (defaulted)"
 }
 
 # remove eVar from default config file
@@ -185,20 +185,20 @@ function _c_unset_var {
 	local eVar="CLAMITY_$prop"
 	unset $eVar
 	local rc=0
-	[ -n "`_evar_is $eVar`" ] && _error "why is $eVar still set?" && rc=1
+	[ -n "$(_evar_is $eVar)" ] && _error "why is $eVar still set?" && rc=1
 	[ $setDefault -eq 0 ] && return $rc
 
 	if [ -f "$DefaultCfgFile" ]; then
-		grep -q "$eVar=" "$DefaultCfgFile" || return $rc	# config parm not in defaults
+		grep -q "$eVar=" "$DefaultCfgFile" || return $rc # config parm not in defaults
 		# comment out parm
 		cp -p $DefaultCfgFile $DefaultCfgFile.undo || return 1
-		grep -v "$eVar=" $DefaultCfgFile.undo |sort >$DefaultCfgFile
+		grep -v "$eVar=" $DefaultCfgFile.undo | sort >$DefaultCfgFile
 	fi
 	return $rc
 }
 
 function _c_set_config {
-	local DefaultCfgFile="`_defaults DefaultsFile`"
+	local DefaultCfgFile="$(_defaults DefaultsFile)"
 	[ "$1" = "set" ] && local UnSet=0 || UnSet=1
 	shift
 	[ "$1" = "default" ] && local setAsDefault=1 && shift || local setAsDefault=0
@@ -206,22 +206,32 @@ function _c_set_config {
 	# echo "Prop=$prop   val=$val"
 
 	# validate input
-	! _is_known_prop "$prop" && _warn "unknown config property: $prop" && return 1
+	! __c_is_known_prop "$prop" && _warn "unknown config property: $prop" && return 1
 	[ $UnSet -eq 1 ] && [ -n "$val" ] && _warn "unset does not accept a value" && return 1
 	[ $UnSet -eq 0 ] && [ -z "$val" ] && _warn "usage: clamity config set [default] <prop> <val>" && return 1
 
-	[ $UnSet -eq 0 ] && { _c_set_var "$prop" "$val" "$setAsDefault"; return $?; }
+	[ $UnSet -eq 0 ] && {
+		_c_set_var "$prop" "$val" "$setAsDefault"
+		return $?
+	}
 	_c_unset_var "$prop" "$setAsDefault"
 }
 
-[ -z "$subcmd" ] && { _brief_usage "$customCmdDesc" "$subcmd"; return 1; }
-[ "$subcmd" = help ] && { _man_page "$customCmdDesc" "$cmd"; return 1; }
+[ -z "$subcmd" ] && {
+	_brief_usage "$customCmdDesc" "$subcmd"
+	return 1
+}
+[ "$subcmd" = help ] && {
+	_man_page "$customCmdDesc" "$cmd"
+	return 1
+}
+_trace "config.sh> $CLAMITY_os_preferred_pkg_mgr=CLAMITY_os_preferred_pkg_mgr"
 
 # Execute sub-commands
 case "$subcmd" in
-	show) _c_show_config_settings "$@" || return 1;;
-	set|unset) _c_set_config "$subcmd" "$@" || return 1;;
-	list) _print_clamity_config_options || return 1;;
-	*) _warn "unknown sub-command $subcmd. Try 'help'." && return 1;;
+show) _c_show_config_settings "$@" || return 1 ;;
+set | unset) _c_set_config "$subcmd" "$@" || return 1 ;;
+list) _print_clamity_config_options || return 1 ;;
+*) _warn "unknown sub-command $subcmd. Try 'help'." && return 1 ;;
 esac
 return 0
