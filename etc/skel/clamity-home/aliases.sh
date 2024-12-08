@@ -1,7 +1,5 @@
+# If you want the standard clamity aliases defined for your shell when you load
+# clamity, uncomment this line. Or, you can define your own aliases here.
+# They'll be loaded when clamity is loaded.
 
-# Shell command aliases make repetation easier. This file is intended to be
-# managed by you, it will not be over-written.
-
-# alias c='clamity'
-# alias ctfm='clamity tfm'
-# alias caws='clamity aws'
+# source $CLAMITY_ROOT/etc/common-aliases.sh

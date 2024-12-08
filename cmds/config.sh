@@ -141,7 +141,7 @@ customCmdDesc="
 
 function _c_show_config_settings {
 	DefaultCfgFile="$(_defaults DefaultsFile)"
-	[ -z "$1" ] && echo -e "\nEnvironment Variables\n---------------------" && env | grep ^CLAMITY_ | sort && return 0
+	[ -z "$1" ] && echo -e "\nEnvironment Settings\n---------------------" && env | grep ^CLAMITY_ | sed -e 's/^CLAMITY_//' | sort && return 0
 	[ "$1" = "defaults" -o "$1" = "default" ] || { _warn "usage: clamity config show [defaults]" && return 1; }
 	[ ! -f "$DefaultCfgFile" ] && echo "No defaults defined" && return 0
 	echo -e "\nDefaults from $DefaultCfgFile:\n---------------------------" && cat $DefaultCfgFile || return 1

@@ -209,7 +209,7 @@ function install_pkg {
 	local cmd="$1"
 	[ -z "$cmd" ] && _error "package missing. don't know what to install." && return 1
 	if [ -z "$(get_pkg_mgr)" ]; then
-		echo "no preferred package manager selected"
+		_warn "no preferred package manager selected"
 		select_macos_pkg_mgr
 		[ -z "$(get_pkg_mgr)" ] && return 1
 	fi
