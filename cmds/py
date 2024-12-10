@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+
+# desc: run with the clamity python environment (clam-py)
+
+$CLAMITY_ROOT/bin/clam-py "$@"

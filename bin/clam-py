@@ -8,7 +8,7 @@ source $CLAMITY_ROOT/lib/_.sh || return 1
 function usage {
 	echo "
 	clam-py update | install [<py-pkg>]   # update or install python environ or python pkg
-	eval \`clam-py activate\`               # activate clamity's virtual python env
+	eval \`clam-py activate\`               # activate clamity's virtual python env 'clamity env activate-python'
 	clam-py <py-script>                   # run a python script in clamity's venv
 "
 }
@@ -21,7 +21,7 @@ function setup_venv {
 
 function install_core_modules {
 	_echo "installing core python modules ($CLAMITY_ROOT/etc/dependencies/core-python-modules.txt)" >&2
-	$CLAMITY_HOME/pyvenv/bin/pip3 install `egrep -v '^#|^$' $CLAMITY_ROOT/etc/dependencies/core-python-modules.txt` >&2
+	$CLAMITY_HOME/pyvenv/bin/pip3 install $(egrep -v '^#|^$' $CLAMITY_ROOT/etc/dependencies/core-python-modules.txt) >&2
 }
 
 function update_pip_pkgs {
@@ -32,7 +32,7 @@ function update_pip_pkgs {
 function add_missing_python_pkgs {
 	_run $CLAMITY_HOME/pyvenv/bin/pip3 list installed >/tmp/py-installed-$$ || return 1
 	local p missing_pkgs=""
-	for p in `egrep -v '^#|^$' $CLAMITY_ROOT/etc/dependencies/core-python-modules.txt`; do
+	for p in $(egrep -v '^#|^$' $CLAMITY_ROOT/etc/dependencies/core-python-modules.txt); do
 		grep -q "^$p " /tmp/py-installed-$$ || missing_pkgs="$missing_pkgs $p"
 	done
 	[ -n "$missing_pkgs" ] && { _run $CLAMITY_HOME/pyvenv/bin/pip3 install $missing_pkgs || return 1; }
@@ -44,13 +44,19 @@ function add_missing_python_pkgs {
 
 # update python packages and quit
 [ "$1" == 'update' ] && [ ! -d "$CLAMITY_HOME/pyvenv/bin/python3" ] && exit 0 # py not installed, nothing to do
-[ "$1" == 'update' ] && { update_pip_pkgs && add_missing_python_pkgs; exit $?; }
+[ "$1" == 'update' ] && {
+	update_pip_pkgs && add_missing_python_pkgs
+	exit $?
+}
 
 # install python virtual environment
 [ ! -f "$CLAMITY_HOME/pyvenv/bin/python3" ] && { setup_venv && install_core_modules || exit 1; }
 
 # install a python package and quit
-[ "$1" == 'install' ] && { [ -z "$2" ] && exit 0 || { pip3 install $2; exit $?; } }
+[ "$1" == 'install' ] && { [ -z "$2" ] && exit 0 || {
+	pip3 install $2
+	exit $?
+}; }
 
 # verify all core python modules are installed
 add_missing_python_pkgs >&2 || exit 1
@@ -63,5 +69,8 @@ export PYTHONPATH="$CLAMITY_ROOT/lib/py:$PYTHONPATH"
 
 # Run a clamity python command
 export PATH="$CLAMITY_ROOT/pyvenv/bin:$PATH"
-[ -x $CLAMITY_HOME/pyvenv/bin/$1 ] && { cmd=$1 && shift && _run $CLAMITY_HOME/pyvenv/bin/$cmd "$@"; exit $?; }
+[ -x $CLAMITY_HOME/pyvenv/bin/$1 ] && {
+	cmd=$1 && shift && _run $CLAMITY_HOME/pyvenv/bin/$cmd "$@"
+	exit $?
+}
 _run $CLAMITY_HOME/pyvenv/bin/python3 "$@"
