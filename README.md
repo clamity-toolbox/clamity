@@ -116,5 +116,5 @@ Guides and other docs can be found [here](docs/README.md).
   the command and path in the box so VS Code doesn't infer it from a symbolic
   link.
 
-- Create a `.env` file in the clamity repo's root directory (`cp .env.sample .env`
-  and edit as needed).
+- Create a `.env` file in the clamity repo's root directory. If `CLAMITY_ROOT`
+  is defined, you can run this command: `cat .env.sample|sed "s|__CLAMITY_ROOT__|${CLAMITY_ROOT}|" >.env`
