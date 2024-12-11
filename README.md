@@ -34,7 +34,7 @@ have to memorize the zillions of ways things work.
 - **[Optional]** Much of clamity's functionality is written in python. It will
   create its own python virtual environment but you need to have **python3**
   version **3.10** or greater in your search. To verify, run `python3
-  --version`.
+--version`.
 
 ## Quickstart
 
@@ -42,12 +42,13 @@ have to memorize the zillions of ways things work.
 
 1. Clone the repo. It's recommended to use the `ssh` protocol as many of the
    `clamity` features rely on that protocol. To do so, you'll need to add your
-   ssh public key to your `github.com` account settings `Github.com > User Menu
-   > Settings > SSH and GPG keys`.
+   ssh public key to your `github.com` account settings `Github.com > User Menu > Settings > SSH and GPG keys`.
+
    ```
    cd /my/src
    git clone git@github.com:clamity-toolbox/clamity
    ```
+
    Cloning via `https` is fine but eventually you'll want to create one or more
    ssh key pair(s) for yourself; `clamity` can help with that too.
 
@@ -55,15 +56,18 @@ have to memorize the zillions of ways things work.
    loaded into your shell. It will _NOT_ be inherited when launching sub-shells
    unless you specifically configure your shell's run-commands file (`~/.zshrc`,
    `~/.bashrc`) for that.
+
    ```
    source /my/src/clamity/loader.sh
    ```
 
 1. Consider adding an alias to your shell's run-commands file (`~/.bashrc` or
    `~/.zshrc`) to make it available in all shells you spawn. For example:
+
    ```
    echo "alias load-clamity='source /my/src/clamity/loader.sh'" >> ~/.zshrc'
    ```
+
    Now for all new shells (not your current one), you'll be able to type
    `load-clamity` on the command line to load it.
 
