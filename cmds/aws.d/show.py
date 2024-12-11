@@ -48,6 +48,10 @@ if len(sys.argv) == 1:
 
 opts = options.parse(help="resource")
 
+if opts.resource == "help":
+    options.print_help()
+    exit(1)
+
 resourceMap = {
     "secret": aws.resources.secrets,
     "vpc": aws.resources.vpcs,

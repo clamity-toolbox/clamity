@@ -281,6 +281,10 @@ function _vecho { # output only in verbose or debug modes (and not silent)
 	{ _is_debug || _is_verbose; } && echo "$@" && return 0
 }
 
+function _fecho { # always send to stdout (forced echo)
+	echo "$@"
+}
+
 function _ask { # prompt($1) for a y/n question and default($2). succes if 'yes'
 	local prompt="$1" def_ans="$2"
 	local ans=""

@@ -1,0 +1,104 @@
+#!/usr/bin/env bash
+
+# desc: manage contexts
+
+source $CLAMITY_ROOT/lib/_.sh || exit 1
+
+__Abstract="
+    Many clamity functions operate in a given context. That context
+    is often specific to the task at hand. For example, if you're
+    working with AWS resources the AWS SDK access credentials and region
+    may determine part of the context. Use this sub-command to report
+    and amnipulate the various contexts clamity is aware of.
+"
+
+__Usage="
+	clamity context { help | show }
+"
+
+__CommandOptions=""
+# __CommandOptions="
+# 	--opt-a
+# 		boolean yes or no
+
+# 	--opt-name <name>
+#  		the name of the thing you specifed using --opt-name.
+# "
+
+__EnvironmentVariables=""
+# __EnvironmentVariables="
+# 	CLAMITY_os_preferred_pkg_mgr
+# 		Supported package managers: brew | port | yum | apt
+# "
+
+__Examples="
+	Examples are needed
+"
+
+# Help for local sub-commands
+# ---------------------------
+# If you define sub-commands in this script or external to the $cmd.d/ dir, add
+# them to 'customCmdDesc'. Note how each command is on its own line prefixed
+# with '\n\t'.
+
+customCmdDesc="
+\n\tshow - report contexts
+"
+# \n\tcheck - probe OS for config & environment info
+# \n\tpm - power management
+# "
+
+function aws_context {
+    _fecho "AWS caller identity"
+    _run aws sts get-caller-identity || {
+        _error "no aws caller identity"
+        return 1
+    }
+    _fecho "Default region"
+    _run aws ec2 describe-availability-zones --output text --query 'AvailabilityZones[0].[RegionName]'
+    _fecho Env Vars:
+    env | grep ^AWS_
+    return 0
+}
+
+function show_context {
+    aws_context
+}
+
+cmd=$(basename $0)
+[ -z "$1" ] && {
+    _usage "$customCmdDesc" "$cmd"
+    exit 1
+}
+subcmd="$1" && shift
+
+# external sub-command
+if [ -x "$CLAMITY_ROOT/cmds/context.d/$subcmd" ]; then
+    _run_clamity_subcmd "$cmd" "$subcmd" "$@"
+    exit $?
+fi
+
+# Use the simple shell options parser which includes common options
+# -----------------------------------------------------------------
+# Options are exported env vars prefixed with CLAMITY_. eg.  CLAMITY_verbose="1"
+setup_clamity_options_parser \
+    Level1 --level1 1 0
+# optVarName    --opt-name    "<value-if-set>"  "<default>" \
+# boolOpttName  --opt2-name   1                 0 \
+# optWithValue  --val-opt     :                 ""       # : expects 1 arg
+parse_clamity_options "$@"
+eval set -- $PARGS_POSITIONAL # accomodates '--' for positional args
+# "$@" now represents positional args. CLAMITY_* vars set (and exported)
+
+# internal command
+case "$subcmd" in
+show)
+    show_context
+    exit $?
+    ;;
+*)
+    _usage "$customCmdDesc" "$cmd"
+    exit 1
+    ;;
+esac
+exit 0

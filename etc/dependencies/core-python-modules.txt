@@ -1,4 +1,4 @@
-# These are installed by `pip` when the python virtual env is first setup.
+# pip packages required for clamity python commands
 
 boto3
 deepdiff
