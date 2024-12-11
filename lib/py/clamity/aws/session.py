@@ -2,26 +2,23 @@ import sys
 import boto3
 from typing import Optional
 import boto3.session
-
-import clamity.core.utils as cUtils
 import clamity.core.options as cOptions
 
 
 class sessionSettings(metaclass=cOptions.Singleton):
-    debug: bool = False
-    verbose: bool = False
+    options = cOptions.CmdOptions()
+    _set_default_from_arg = False
 
     @property
     def default_region(self) -> Optional[str]:
-        return boto3.session.Session().region_name
+        if not self._set_default_from_arg and self.options.args.aws_region:
+            self.default_region = self.options.args.aws_region
+            self._set_default_from_arg = True
+        return boto3._get_default_session().region_name  # this should not be private
 
     @default_region.setter
     def default_region(self, region: str) -> None:
         boto3.setup_default_session(region_name=region)
-
-    @property
-    def options(self) -> dict:
-        return {"debug": self.debug, "verbose": self.verbose, "region_name": self.default_region}
 
     def botoRequestOptions(self, **kwargs) -> dict:
         request_region = kwargs["region"] if "region" in kwargs else self.default_region
@@ -33,8 +30,7 @@ class sessionSettings(metaclass=cOptions.Singleton):
             exit(1)
         return {"region_name": request_region}
 
-    def printOptions(self, **kwargs) -> None:
-        cUtils.dumpJson(
-            {"debug": self.debug, "verbose": self.verbose, "region_name": self.default_region},
-            **kwargs,
-        )
+    def client(self, client: str, region: str):
+        if region != self.default_region:
+            self.default_region = region
+        return boto3.client(client, **self.botoRequestOptions(region=region))

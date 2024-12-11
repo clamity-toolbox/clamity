@@ -3,10 +3,9 @@ Lowest level AWS resources with a standardized interface.
 """
 
 from abc import ABC, abstractmethod
-from typing import Optional, Self
+from typing import Optional, Self, Callable
 from enum import Enum
 import sys
-import boto3
 import deepdiff
 import clamity.core.utils as cUtils
 import clamity.core.options as cOptions
@@ -85,39 +84,16 @@ class resourceCache:
     def replace(self, newData: dict, region: str):
         self.data[region] = newData
 
-    def regionalData(self, region=str) -> dict:
-        return self.data[region]
+    def regionalData(self, region=str, **kwargs) -> dict:
+        r = kwargs["region"] if "region" in kwargs else region
+        return self.data[r]
 
-    def hasRegionalDataFor(self, region=str) -> bool:
-        return bool(region in self._data)
+    def hasRegionalDataFor(self, region=str, **kwargs) -> bool:
+        r = kwargs["region"] if "region" in kwargs else region
+        return bool(r in self._data)
 
-    # def get(self, category: str, **kwargs) -> Optional[any]:
-    #     region = kwargs["region"] if "region" in kwargs else "default"
-    #     botoClientOpts = {"region_name": kwargs["region"]} if "region" in kwargs else {}
-    #     try:
-    #         if "force" in kwargs and kwargs["force"]:  # re-populate cache
-    #             raise KeyError
-    #         if "TransitGatewayRouteTableId" in kwargs:
-    #             return self.data[category][region][kwargs["TransitGatewayRouteTableId"]]
-    #         elif self.data[category][region]:
-    #             return self.data[category][region]
-    #     except KeyError:
     #         if category not in self.data:
     #             self.data[category] = {region: {}}
-    #         if category == "vpcs":
-    #             self.data[category][region] = boto3.resource("ec2", **botoClientOpts).vpcs.all()
-    #         elif category == "subnets":
-    #             self.data[category][region] = boto3.resource("ec2", **botoClientOpts).subnets.all()
-    #         elif category == "route_tables":
-    #             self.data[category][region] = boto3.resource("ec2", **botoClientOpts).route_tables.all()
-    #         elif category == "security_groups":
-    #             self.data[category][region] = boto3.resource("ec2", **botoClientOpts).security_groups.all()
-    #         elif category == "eips":
-    #             self.data[category][region] = boto3.resource("ec2", **botoClientOpts).vpc_addresses.all()
-    #         elif category == "igws":
-    #             self.data[category][region] = boto3.resource("ec2", **botoClientOpts).internet_gateways.all()
-    #         elif category == "natgws":
-    #             self.data[category][region] = boto3.client("ec2", **botoClientOpts).describe_nat_gateways()
     #         elif category == "tgws":
     #             self.data[category][region] = boto3.client("ec2", **botoClientOpts).describe_transit_gateways()
     #         elif category == "tgw_route_tables":
@@ -149,10 +125,6 @@ class resourceCache:
     #                 TransitGatewayRouteTableId=kwargs["TransitGatewayRouteTableId"]
     #             )
     #             return self.data[category][region][kwargs["TransitGatewayRouteTableId"]]
-    #         elif category == "secrets":
-    #             self.data[category][region] = boto3.client("secrets", **botoClientOpts).list_secrets()
-
-    #     return self.data[category][region] if region in self.data[category] else None
 
 
 class resourceType(Enum):
@@ -160,6 +132,16 @@ class resourceType(Enum):
     VPC = 1
     SUBNET = 2
     SECRET = 3
+    ROUTE = 4
+    ROUTE_TABLE = 5
+    IGW = 6
+    EIP = 7
+    TGW = 8
+    TGW_ROUTE = 9
+    TGW_ROUTE_TABLE = 10
+    SECURITY_GROUP = 11
+    EC2_INSTANCE = 12
+    NATGW = 13
 
 
 # One AWS resource (abstract)
@@ -191,7 +173,7 @@ class _resource(ABC):
         self._newData = {}
         self._region = None
         if "_describeData" in kwargs:
-            self._region = kwargs.get("region") or self.session.default_region
+            self._region = kwargs["region"]
             self._exists = True
             self._describeData = kwargs["_describeData"]
         elif kwargs.get("props"):
@@ -208,7 +190,7 @@ class _resource(ABC):
 
     @property
     def isDefunct(self) -> bool:
-        if self.session.debug and self._defunct:
+        if self.options.args.debug and self._defunct:
             print(f"debug: reporting defunct resource {self.id}", file=sys.stderr)
         return self._defunct
 
@@ -232,6 +214,9 @@ class _resource(ABC):
     @property
     def region(self) -> Optional[str]:
         return self._region
+
+    def get_region(self, **kwargs) -> Optional[str]:
+        return kwargs["region"] if "region" in kwargs else self.session.default_region
 
     @property
     def isDirty(self) -> bool:
@@ -266,8 +251,8 @@ class _resource(ABC):
 
     def print(self, **kwargs) -> None:
         output = kwargs["output"] if "output" in kwargs else self.options.args.output_format
-        truncate = kwargs["truncate"] if "truncate" in kwargs else True
-        header = kwargs["header"] if "header" in kwargs else True
+        truncate = kwargs["truncate"] if "truncate" in kwargs else self.options.args.truncate
+        header = kwargs["header"] if "header" in kwargs else self.options.args.header
         if output == cOptions.outputFormat.JSON:
             cUtils.dumpJson(self._describeData)
         else:
@@ -301,6 +286,20 @@ class _resources(ABC):
     def __len__(self):
         return len(self._resourcesList)
 
+    def _fetch(self, cacheKey: str, new_resource: _resource, botoFunc: Callable, botoFuncOpts: dict = {}, **kwargs) -> Self:
+        self._region = kwargs["region"] if "region" in kwargs else self.session.default_region
+        if not self._resourceCache.hasRegionalDataFor(self.region):
+            response: dict = botoFunc(**botoFuncOpts)
+            if not _checkHttpResponse(response):
+                return self
+            self._resourceCache.replace(response.get(cacheKey) or [], self.region)
+            # cUtils.dumpJson(response)
+            # exit(1)
+        r: _resource
+        for r in self._resourceCache.regionalData(self.region):
+            self._resourcesList.append(new_resource(_describeData=r, region=self.region))
+        return self
+
     @abstractmethod
     def fetch(self, filter: dict = {}, **kwargs) -> Self:
         pass
@@ -326,6 +325,9 @@ class _resources(ABC):
     def region(self) -> Optional[str]:
         return self._region
 
+    def get_region(self, **kwargs) -> Optional[str]:
+        return kwargs["region"] if "region" in kwargs else self.session.default_region
+
     def print(self, **kwargs) -> None:
         output = kwargs["output"] if "output" in kwargs else self.options.args.output_format
         truncate = kwargs["truncate"] if "truncate" in kwargs else True
@@ -335,7 +337,7 @@ class _resources(ABC):
             return
         d = []
         r: _resource
-        for r in self._resourcesList:
+        for r in sorted(self._resourcesList, key=lambda x: f"{x.name} {x.id}", reverse=False):
             if header and output == cOptions.outputFormat.TEXT:
                 _printTableHeader(r._displayFieldOrder, r._displayFieldProps)  # bad - private vars
                 header = False
@@ -348,89 +350,6 @@ class _resources(ABC):
 
 
 # ------------------------------------------------------------------------------------------------
-
-# class security_group(resource):
-#     resourceType = "security_group"
-
-
-# class security_groups(resources):
-#     resourceType = "security_groups"
-
-#     def __init__(self):
-#         super().__init__()
-#         for r in self._resourceCache.get(self.resourceType):
-#             self._resources.append(security_group(r))
-
-# ---------------------------
-
-
-# class route(resource):
-# 	resourceType = "route"
-
-# class routes(resources):
-# 	resourceType = "routes"
-
-# class route_table(resource):
-#     resourceType = "route_table"
-
-#     def __init__(self, resource, **kwargs) -> None:
-#         super().__init__(resource, **{**kwargs, "FirstClassProps": ["associations", "routes"]})
-
-
-# class route_tables(resources):
-#     resourceType = "route_tables"
-
-#     def __init__(self) -> None:
-#         super().__init__()
-#         for r in self._resourceCache.get(self.resourceType):
-#             self._resources.append(route_table(r))
-
-# ---------------------------
-
-
-# class eip(resource):
-#     resourceType = "eip"
-
-#     def __init__(self, resource, **kwargs) -> None:
-#         super().__init__(resource, **{**kwargs, "FirstClassProps": ["public_ip", "domain"]})
-
-# class eips(resources):
-#     resourceType = "eips"
-
-#     def __init__(self) -> None:
-#         super().__init__()
-#         for r in self._resourceCache.get(self.resourceType):
-#             self._resources.append(eip(r, id=r.allocation_id))
-
-# ---------------------------
-
-# class igw(resource):
-#     resourceType = "igw"
-
-
-# class igws(resources):
-#     resourceType = "igws"
-
-#     def __init__(self):
-#         super().__init__()
-#         for r in self._resourceCache.get(self.resourceType):
-#             self._resources.append(igw(r))
-
-# ---------------------------
-
-# class natgw(resource):
-#     resourceType = "natgw"
-
-
-# class natgws(resources):
-#     resourceType = "natgws"
-
-#     def __init__(self) -> None:
-#         super().__init__()
-#         for r in self._resourceCache.get(self.resourceType)["NatGateways"]:
-#             self._resources.append(natgw(r, id=r["NatGatewayId"]))
-
-# ---------------------------
 
 # class tgw(resource):
 #     resourceType = "tgw"
@@ -604,17 +523,243 @@ class _resources(ABC):
 # ---------------------------
 
 
-# class subnet(resource):
-#     resourceType = "subnet"
+class security_group(_resource):
+    resourceType = resourceType.SECURITY_GROUP
+    _displayFieldOrder = ["name", "sgId", "desc"]
+    _displayFieldProps = {"desc": {"width": 50}, "name": {"width": 25}, "sgId": {"width": 20}}
+
+    @property
+    def id(self) -> Optional[str]:
+        return self._describeDataProp("GroupId")
+
+    @property
+    def name(self) -> Optional[str]:
+        return self._describeData.get("GroupName") or super().name
+
+    @property
+    def sgId(self) -> Optional[str]:
+        return self.id
+
+    @property
+    def desc(self) -> Optional[str]:
+        return self._describeDataProp("Description")
+
+    def refresh(self, **kwargs) -> Self:
+        pass
+
+    def update(self, **kwargs) -> bool:
+        pass
+
+    def create(self, **kwargs) -> bool:
+        pass
+
+    def destroy(self) -> bool:
+        pass
 
 
-# class subnets(resources):
-#     resourceType = "subnets"
+class security_groups(_resources):
 
-#     def __init__(self) -> None:
-#         super().__init__()
-#         for r in self._resourceCache.get(self.resourceType):
-#             self._resources.append(subnet(r))
+    def fetch(self, filter={}, **kwargs) -> Self:
+        return self._fetch(
+            "SecurityGroups",
+            security_group,
+            self.session.client("ec2", self.get_region(**kwargs)).describe_security_groups,
+            {},
+            **kwargs,
+        )
+
+
+class eip(_resource):
+    resourceType = resourceType.EIP
+    _displayFieldOrder = ["name", "id", "eip"]
+    _displayFieldProps = {"name": {"width": 30}, "eip": {"width": 15}, "id": {"width": 26}}
+
+    @property
+    def id(self) -> Optional[str]:
+        return self._describeDataProp("AllocationId")
+
+    @property
+    def allocationId(self) -> Optional[str]:
+        return self.id
+
+    @property
+    def eip(self) -> str:
+        return self._describeDataProp("PublicIp")
+
+    def refresh(self, **kwargs) -> Self:
+        pass
+
+    def update(self, **kwargs) -> bool:
+        pass
+
+    def create(self, **kwargs) -> bool:
+        pass
+
+    def destroy(self) -> bool:
+        pass
+
+
+class eips(_resources):
+
+    def fetch(self, filter={}, **kwargs) -> Self:
+        return self._fetch(
+            "Addresses",
+            eip,
+            self.session.client("ec2", self.get_region(**kwargs)).describe_addresses,
+            {},
+            **kwargs,
+        )
+
+
+# ---------------------------
+
+
+class natgw(_resource):
+    resourceType = resourceType.NATGW
+    _displayFieldOrder = ["name", "natGwId"]
+    _displayFieldProps = {"name": {"width": 30}, "natGwId": {"width": 24}}
+
+    @property
+    def id(self) -> Optional[str]:
+        return self._describeDataProp("NatGatewayId")
+
+    @property
+    def natGwId(self) -> str:
+        return self.id
+
+    def refresh(self, **kwargs) -> Self:
+        pass
+
+    def update(self, **kwargs) -> bool:
+        pass
+
+    def create(self, **kwargs) -> bool:
+        pass
+
+    def destroy(self) -> bool:
+        pass
+
+
+class natgws(_resources):
+
+    def fetch(self, filter={}, **kwargs) -> Self:
+        return self._fetch(
+            "NatGateways",
+            natgw,
+            self.session.client("ec2", self.get_region(**kwargs)).describe_nat_gateways,
+            {},
+            **kwargs,
+        )
+
+
+class igw(_resource):
+    resourceType = resourceType.IGW
+    _displayFieldOrder = ["name", "igwId"]
+    _displayFieldProps = {"name": {"width": 30}, "igwId": {"width": 24}}
+
+    @property
+    def id(self) -> Optional[str]:
+        return self._describeDataProp("InternetGatewayId")
+
+    @property
+    def igwId(self) -> str:
+        return self.id
+
+    def refresh(self, **kwargs) -> Self:
+        pass
+
+    def update(self, **kwargs) -> bool:
+        pass
+
+    def create(self, **kwargs) -> bool:
+        pass
+
+    def destroy(self) -> bool:
+        pass
+
+
+class igws(_resources):
+
+    def fetch(self, filter={}, **kwargs) -> Self:
+        return self._fetch(
+            "InternetGateways",
+            igw,
+            self.session.client("ec2", self.get_region(**kwargs)).describe_internet_gateways,
+            {},
+            **kwargs,
+        )
+
+
+class route_table(_resource):
+    resourceType = resourceType.ROUTE_TABLE
+    _displayFieldOrder = ["name", "routeTableId"]
+    _displayFieldProps = {"name": {"width": 30}, "routeTableId": {"width": 24}}
+
+    @property
+    def id(self) -> Optional[str]:
+        return self._describeDataProp("RouteTableId")
+
+    @property
+    def routeTableId(self) -> str:
+        return self.id
+
+    def refresh(self, **kwargs) -> Self:
+        pass
+
+    def update(self, **kwargs) -> bool:
+        pass
+
+    def create(self, **kwargs) -> bool:
+        pass
+
+    def destroy(self) -> bool:
+        pass
+
+
+class route_tables(_resources):
+
+    def fetch(self, filter={}, **kwargs) -> Self:
+        return self._fetch(
+            "RouteTables",
+            route_table,
+            self.session.client("ec2", self.get_region(**kwargs)).describe_route_tables,
+            {},
+            **kwargs,
+        )
+
+
+class subnet(_resource):
+    resourceType = resourceType.SUBNET
+    _displayFieldOrder = ["name", "subnetId"]
+    _displayFieldProps = {"name": {"width": 30}, "subnetId": {"width": 24}}
+
+    @property
+    def id(self) -> Optional[str]:
+        return self._describeDataProp("SubnetId")
+
+    @property
+    def subnetId(self) -> str:
+        return self.id
+
+    def refresh(self, **kwargs) -> Self:
+        pass
+
+    def update(self, **kwargs) -> bool:
+        pass
+
+    def create(self, **kwargs) -> bool:
+        pass
+
+    def destroy(self) -> bool:
+        pass
+
+
+class subnets(_resources):
+
+    def fetch(self, filter={}, **kwargs) -> Self:
+        return self._fetch(
+            "Subnets", subnet, self.session.client("ec2", self.get_region(**kwargs)).describe_subnets, {}, **kwargs
+        )
 
 
 class vpc(_resource):
@@ -656,15 +801,7 @@ class vpc(_resource):
 class vpcs(_resources):
 
     def fetch(self, filter={}, **kwargs) -> Self:
-        if not self._resourceCache.hasRegionalDataFor(self.region):
-            response = boto3.client("ec2", **{"region_name": self.region}).describe_vpcs()
-            if not _checkHttpResponse(response):
-                return self
-            self._resourceCache.replace(response["Vpcs"] if "Vpcs" in response else [], self.region)
-        r: _resource
-        for r in self._resourceCache.regionalData(self.region):
-            self._resourcesList.append(vpc(_describeData=r), self.region)
-        return self
+        return self._fetch("Vpcs", vpc, self.session.client("ec2", self.get_region(**kwargs)).describe_vpcs, {}, **kwargs)
 
 
 # ---------------------------
@@ -714,11 +851,12 @@ class secret(_resource):
         if self.exists or self.isDefunct:
             print("Cannot create resource if it exists or is defunct.", file=sys.stderr)
             return None
+        self._region = kwargs.get("region") or self.session.default_region
         if self._newData.get("type") == secretType.SIMPLE:
             if not self._newData.get("name") or not self._newData.get("desc") or not self._newData.get("value"):
                 print("name, desc and value all required to create a simple secret", file=sys.stderr)
                 return False
-            response = boto3.client("secretsmanager", **{"region_name": self.region}).create_secret(
+            response = self.session.client("secretsmanager", self.region).create_secret(
                 Name=self._newData["name"],
                 Description=self._newData["desc"],
                 SecretString=self._newData["value"],
@@ -740,7 +878,7 @@ class secret(_resource):
             print("secret not yet created or is defunct", file=sys.stderr)
             return None
         if kwargs.get("value"):
-            response = boto3.client("secretsmanager", **{"region_name": self.region}).put_secret_value(
+            response = self.session.client("secretsmanager", self.region).put_secret_value(
                 SecretId=self.arn,
                 SecretString=kwargs["value"],
             )
@@ -748,7 +886,7 @@ class secret(_resource):
                 return None
             print(f"stored version {response['VersionId']}")
         if kwargs.get("desc"):
-            response = boto3.client("secretsmanager", **{"region_name": self.region}).update_secret(
+            response = self.session.client("secretsmanager", self.region).update_secret(
                 SecretId=self.arn,
                 Description=kwargs["desc"],
             )
@@ -761,7 +899,7 @@ class secret(_resource):
         if not self.exists or self.isDefunct:
             print("secret not yet created or is defunct", file=sys.stderr)
             return False
-        response = boto3.client("secretsmanager", **{"region_name": self.region}).delete_secret(
+        response = self.session.client("secretsmanager", self.region).delete_secret(
             SecretId=self.arn, RecoveryWindowInDays=7
         )
         print(f"DeletionDate: {response['DeletionDate']}")
@@ -772,7 +910,7 @@ class secret(_resource):
     @property
     def details(self) -> dict:
         if not hasattr(self, "_details"):
-            response = boto3.client("secretsmanager", **{"region_name": self.region}).describe_secret(SecretId=self.arn)
+            response = self.session.client("secretsmanager", self.region).describe_secret(SecretId=self.arn)
             if not _checkHttpResponse(response):
                 return {}
             self._details = response
@@ -781,7 +919,7 @@ class secret(_resource):
     @property
     def _value(self) -> dict:
         if not hasattr(self, "__value"):
-            response = boto3.client("secretsmanager", **{"region_name": self.region}).get_secret_value(SecretId=self.arn)
+            response = self.session.client("secretsmanager", self.region).get_secret_value(SecretId=self.arn)
             if not _checkHttpResponse(response):
                 return {}
             self.__value = response
@@ -799,19 +937,13 @@ class secret(_resource):
 class secrets(_resources):
 
     def fetch(self, filter={}, **kwargs) -> Self:
-        if not self._resourceCache.hasRegionalDataFor(self.region):
-            boto_opts = self.session.botoRequestOptions(**kwargs)
-            response = boto3.client("secretsmanager", **boto_opts).list_secrets(
-                IncludePlannedDeletion=False,
-                SortOrder="asc",
-            )
-            if not _checkHttpResponse(response):
-                return self
-            self._resourceCache.replace(response.get("SecretList") or [], self.region)
-        r: _resource
-        for r in self._resourceCache.regionalData(self.region):
-            self._resourcesList.append(secret(_describeData=r))
-        return self
+        return self._fetch(
+            "SecretList",
+            secret,
+            self.session.client("secretsmanager", self.get_region(**kwargs)).list_secrets,
+            {"IncludePlannedDeletion": False, "SortOrder": "asc"},
+            **kwargs,
+        )
 
     def findOne(self, nameToFind: str) -> Optional[_resource]:
         resourceL = [r for r in self._resourcesList if r.id == nameToFind or r.name == nameToFind or nameToFind in r.arn]

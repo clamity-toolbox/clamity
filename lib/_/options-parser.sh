@@ -74,8 +74,6 @@ function __describe_sub_commands { # print cmds descriptions
 	local customUsage="$1"            # custom string prefixed to sub commands section
 	local cmd="$2"                    # usage for this sub command or clamity string for top level
 	local flags="$3"
-	# local formatFor="$3"		# manpage | usage - formats output
-	# local skipFinalEcho="$4"	# true to skip final echo (more formatting)
 	local dir="$CLAMITY_ROOT/cmds/$cmd.d"
 
 	local optsTitlePrefix="SUB-"

@@ -18,7 +18,6 @@ import os
 from clamity.core.options import CmdOptions
 import clamity.core.utils as cUtils
 from clamity import aws
-import argparse
 
 Usage = """
     clamity secrets { list | help }
@@ -81,13 +80,8 @@ def secrets_schema():
         exit(1)
 
 
-options = CmdOptions().parser(
-    description=__doc__,
-    usage=Usage,
-    epilog=ActionsAndSupplemental,
-    formatter_class=argparse.RawTextHelpFormatter,
-)
-options.add_common_args()
+options = CmdOptions().parser(description=__doc__, usage=Usage, epilog=ActionsAndSupplemental)
+options.add_args(["common", "aws"])
 options.add_argument("action", choices=["list", "delete", "update", "add", "read", "details", "help"], help="action to take")
 options.add_argument("--desc", type=str, help="useful description of the secret (possibly a URL)")
 options.add_argument("--value", type=str, help="the secret's value")

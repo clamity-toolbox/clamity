@@ -13,8 +13,8 @@ have to memorize the zillions of ways things work.
 
 - The toolbox favors unix-like operating systems, notably linux and OSX.
 
-- Where the Clamity CLI is concerned, **zsh** or **bash** are supported. [Read
-  this brief about working in a shell environment](docs/shell-environment.md).
+- The Clamity CLI supports **zsh** and **bash**. [Read this brief about working
+  in a shell environment](docs/shell-environment.md).
 
 - Make sure you have a Clamity supported package manager installed on your
   computer and in your search path (`PATH`). Clamity builds on lots of 3rd party
@@ -31,38 +31,39 @@ have to memorize the zillions of ways things work.
   - **yum/rpm** for Fedora/CentOS/Red Hat flavors
   - **apt/dpkg** for Ubuntu/Debian flavors
 
+- **[Optional]** Much of clamity's functionality is written in python. It will
+  create its own python virtual environment but you need to have **python3**
+  version **3.10** or greater in your search. To verify, run `python3
+  --version`.
+
 ## Quickstart
 
 ### Install and Load It
 
 1. Clone the repo. It's recommended to use the `ssh` protocol as many of the
    `clamity` features rely on that protocol. To do so, you'll need to add your
-   ssh public key to your `github.com` account settings.
-
+   ssh public key to your `github.com` account settings `Github.com > User Menu
+   > Settings > SSH and GPG keys`.
    ```
    cd /my/src
    git clone git@github.com:clamity-toolbox/clamity
    ```
-
    Cloning via `https` is fine but eventually you'll want to create one or more
    ssh key pair(s) for yourself; `clamity` can help with that too.
 
 1. The `clamity` command is implemented as a shell function so it needs to be
-   loaded into your shell and it will _NOT_ be inherited when launching
-   sub-shells unless you specifically configure your shell's run-commands file
-   (`~/.zshrc`, `~/.bashrc`) for that.
-
+   loaded into your shell. It will _NOT_ be inherited when launching sub-shells
+   unless you specifically configure your shell's run-commands file (`~/.zshrc`,
+   `~/.bashrc`) for that.
    ```
    source /my/src/clamity/loader.sh
    ```
 
 1. Consider adding an alias to your shell's run-commands file (`~/.bashrc` or
    `~/.zshrc`) to make it available in all shells you spawn. For example:
-
    ```
    echo "alias load-clamity='source /my/src/clamity/loader.sh'" >> ~/.zshrc'
    ```
-
    Now for all new shells (not your current one), you'll be able to type
    `load-clamity` on the command line to load it.
 
@@ -102,12 +103,14 @@ the end of a command for more detail.
 
 Guides and other docs can be found [here](docs/README.md).
 
-## Clamity in VSCode Notes
+## Notes on Developing Clamity in VS Code
 
-- Install the Python, Flake8 & Black Formatter extensions
+- Install the Python, Flake8 & Black Formatter extensions.
+
 - Set the python interpreter (`cmd pallet >Python: Command Interpreter`) to
   `~/.clamity/pyvenv/bin/python3` - Do _NOT_ use the file browser window, type
-  the command and path in the box so VS Code doesn't infer it from symbolic
-  links.
-- Setup a .env file in the clamity repo's root directory (`cp .env.sample .env`
-  and edit to taste).
+  the command and path in the box so VS Code doesn't infer it from a symbolic
+  link.
+
+- Create a `.env` file in the clamity repo's root directory (`cp .env.sample .env`
+  and edit as needed).

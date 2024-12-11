@@ -34,20 +34,25 @@ function _caws_login {
 	_run aws sso login --sso-session $session
 }
 
-[ -z "$subcmd" ] && {
-	_brief_usage "$customCmdDesc" "$subcmd"
-	return 1
-}
-[ "$subcmd" = help ] && {
-	_man_page "$customCmdDesc" "$cmd"
-	return 1
-}
+# [ -z "$subcmd" ] && {
+# 	_brief_usage "$customCmdDesc" "$cmd"
+# 	# _usage "$customCmdDesc" "$cmd"
+# 	return 1
+# }
+_usage "$customCmdDesc" "$cmd" "$subcmd" || return 1
+# [ "$subcmd" = help ] && {
+# 	_man_page "$customCmdDesc" "$cmd"
+# 	return 1
+# }
 
 _cmd_exists aws || _warn "aws command not found"
 _cmds_needed aws || {
 	_error "unable to run aws CLI"
 	return 1
 }
+
+[ -x "$CLAMITY_ROOT/cmds/aws.d/$subcmd.py" ] && { "$CLAMITY_ROOT/bin/clam-py" "$CLAMITY_ROOT/cmds/aws.d/$subcmd.py" "$@"; return $?; }
+[ -x "$CLAMITY_ROOT/cmds/aws.d/$subcmd" ] && { "$CLAMITY_ROOT/cmds/aws.d/$subcmd" "$@"; return $?; }
 
 case "$subcmd" in
 login)

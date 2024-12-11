@@ -6,6 +6,7 @@
 [ -z "$CLAMITY_ROOT" ] && [ -n "$BASH_SOURCE" ] && export CLAMITY_ROOT="$(dirname $BASH_SOURCE)"
 [ -z "$CLAMITY_ROOT" ] && [ -n "$ZSH_VERSION" ] && setopt function_argzero && export CLAMITY_ROOT="$(dirname $0)"
 [ -z "$CLAMITY_ROOT" ] && echo "unsupported shell. maybe try setting CLAMITY_ROOT ?" && return 1
+[ "$CLAMITY_ROOT" = "." ] && export CLAMITY_ROOT=$(pwd)
 [ ! -f "$CLAMITY_ROOT/loader.sh" ] && echo "Is CLAMITY_ROOT=$CLAMITY_ROOT correct? loader.sh isn't where it's supposed to be." && return 1
 
 source $CLAMITY_ROOT/lib/_.sh || return 1

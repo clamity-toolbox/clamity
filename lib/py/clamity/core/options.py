@@ -25,21 +25,17 @@ class Singleton(type):
 
 
 class CmdOptions(metaclass=Singleton):
-    # def __init__(self, *args, **kwargs):
-    #     # print("IAM HERE")
-    #     # print(*args, **kwargs)
-    #     # Call the base class initializer
-    #     # print(kwargs)
-    #     super().__init__(*args, **kwargs)
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
 
     def parser(self, *args, **kwargs) -> Self:
-        self._argparser = argparse.ArgumentParser(*args, **kwargs)
+        self._argparser = argparse.ArgumentParser(*args, **{**kwargs, **{"formatter_class": argparse.RawTextHelpFormatter}})
         return self
 
     def add_argument(self, *args, **kwargs) -> None:
         self._argparser.add_argument(*args, **kwargs)
 
-    def add_common_args(self):
+    def add_common_args(self) -> None:
         self.add_argument("-d", "--debug", action="store_true", default=False, help="debug output")
         self.add_argument("-v", "--verbose", action="store_true", default=False, help="verbose output")
         self.add_argument("-q", "--quiet", action="store_true", default=False, help="surpress output")
@@ -55,6 +51,14 @@ class CmdOptions(metaclass=Singleton):
             choices=["json", "text", "csv"],
             help="json, text (default) or csv",
         )
+
+    def add_aws_args(self) -> None:
+        self.add_argument("--aws-region", type=str, help="AWS region (eg. us-east-1)")
+
+    def add_args(self, arg_groups: list) -> None:
+        for ag in arg_groups:
+            getattr(self, f"add_{ag}_args")()
+        return
 
     def print_usage(self) -> None:
         self._argparser.print_usage()
@@ -72,6 +76,8 @@ class CmdOptions(metaclass=Singleton):
         if "help" in kwargs and getattr(self.args, kwargs["help"]) == "help":
             self.print_help()
             exit(1)
+        self.args.truncate = True
+        self.args.headers = True
         return self.args
 
     # def add_custom_argument(self, name, **kwargs):

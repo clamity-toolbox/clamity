@@ -16,20 +16,21 @@ function usage {
 function setup_venv {
 	_cmds_needed python3 >&2 || return 1
 	_echo "setting up python virtual environment: python3 -m venv $CLAMITY_HOME/pyvenv" >&2
-	python3 -m venv $CLAMITY_HOME/pyvenv >&2
+	python3 -m venv "$CLAMITY_HOME/pyvenv" >&2
 }
 
 function install_core_modules {
 	_echo "installing core python modules ($CLAMITY_ROOT/etc/dependencies/core-python-modules.txt)" >&2
-	$CLAMITY_HOME/pyvenv/bin/pip3 install $(egrep -v '^#|^$' $CLAMITY_ROOT/etc/dependencies/core-python-modules.txt) >&2
+	"$CLAMITY_HOME/pyvenv/bin/pip3" install $(egrep -v '^#|^$' $CLAMITY_ROOT/etc/dependencies/core-python-modules.txt) >&2
 }
 
 function update_pip_pkgs {
-	_run $CLAMITY_HOME/pyvenv/bin/pip3 update installed || return 1
-	_run $CLAMITY_HOME/pyvenv/bin/pip3 update pip || return 1
+	_run "$CLAMITY_HOME/pyvenv/bin/pip3" update installed || return 1
+	_run "$CLAMITY_HOME/pyvenv/bin/pip3" update pip || return 1
 }
 
 function add_missing_python_pkgs {
+	[ -f "$CLAMITY_HOME/cache/core-python-modules.txt" ] && [ ! "$CLAMITY_ROOT/etc/dependencies/core-python-modules.txt" -ot "$CLAMITY_HOME/cache/core-python-modules.txt" ] && return 0  # nothing has changed since we last checked
 	_run $CLAMITY_HOME/pyvenv/bin/pip3 list installed >/tmp/py-installed-$$ || return 1
 	local p missing_pkgs=""
 	for p in $(egrep -v '^#|^$' $CLAMITY_ROOT/etc/dependencies/core-python-modules.txt); do
@@ -37,7 +38,8 @@ function add_missing_python_pkgs {
 	done
 	[ -n "$missing_pkgs" ] && { _run $CLAMITY_HOME/pyvenv/bin/pip3 install $missing_pkgs || return 1; }
 	/bin/rm -f /tmp/py-installed-$$
-	return 0
+	[ ! -d "$CLAMITY_HOME/cache" ] && { _run mkdir "$CLAMITY_HOME/cache" || return 1; }
+	cp -p "$CLAMITY_ROOT/etc/dependencies/core-python-modules.txt" "$CLAMITY_HOME/cache/core-python-modules.txt"
 }
 
 [ -z "$1" ] && usage && exit 1
