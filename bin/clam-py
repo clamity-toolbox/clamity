@@ -16,6 +16,7 @@ function usage {
 function setup_venv {
 	_cmds_needed python3 >&2 || return 1
 	_echo "setting up python virtual environment: python3 -m venv $CLAMITY_HOME/pyvenv" >&2
+	[ $(python3 --version | cut -f2 -d.) -lt 11 ] && _error "python >= 3.11 required ($(which python3) is $(python3 --version | cut -f2 -d' '))" && return 1
 	python3 -m venv "$CLAMITY_HOME/pyvenv" >&2
 }
 
@@ -30,7 +31,7 @@ function update_pip_pkgs {
 }
 
 function add_missing_python_pkgs {
-	[ -f "$CLAMITY_HOME/cache/core-python-modules.txt" ] && [ ! "$CLAMITY_ROOT/etc/dependencies/core-python-modules.txt" -ot "$CLAMITY_HOME/cache/core-python-modules.txt" ] && return 0  # nothing has changed since we last checked
+	[ -f "$CLAMITY_HOME/cache/core-python-modules.txt" ] && [ ! "$CLAMITY_ROOT/etc/dependencies/core-python-modules.txt" -ot "$CLAMITY_HOME/cache/core-python-modules.txt" ] && return 0 # nothing has changed since we last checked
 	_run $CLAMITY_HOME/pyvenv/bin/pip3 list installed >/tmp/py-installed-$$ || return 1
 	local p missing_pkgs=""
 	for p in $(egrep -v '^#|^$' $CLAMITY_ROOT/etc/dependencies/core-python-modules.txt); do
