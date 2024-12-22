@@ -116,6 +116,15 @@ function _run_clamity_cmd { #  sets env and run cmd. search-path:$1 (opt), cmd:$
 	return $ec
 }
 
+function _sub_command_is_external {
+	local cmd="$1" subcmd="$2"
+	local ext
+	for ext in "" .sh .py .js; do
+		[ -x "$CLAMITY_ROOT/cmds/$cmd.d/$subcmd$ext" ] && return 0
+	done
+	return 1
+}
+
 function _run_clamity_subcmd { # execute subcommand script ... cmd:$1, subcmd:$2, args:$@ (opt)
 	_trace "_run_clamity_subcmd()> $*"
 	local cmd="$1" subcmd="$2"
@@ -374,10 +383,16 @@ function _os_arch { # report host's architecture (arm64, x86_64, ...)
 # Poor man's JIT package management
 # ---------------------------------
 function _cmd_exists {
-	which $1 >/dev/null 2>&1
+	while [ -n "$1" ]; do
+		which $1 >/dev/null 2>&1 || return 1
+		shift
+	done
+	return 0
 }
 
 function _cmds_needed { # verify command dependency
+	_cmd_exists "$@" && return 0
+	_warn "aws command not found"
 	_run $CLAMITY_ROOT/bin/run-clamity os pkg installed --ask-to-install "$@"
 }
 

@@ -6,9 +6,6 @@
 
 source $CLAMITY_ROOT/lib/_.sh || exit 1
 
-cmd="$(dirname $0 | rev | cut -f1 -d/ | rev | cut -f1 -d.)" # shcmd-template
-subcmd="$(basename $0)"                                     # subcmd-template
-
 # ------------------------------------------------
 __Abstract="
 	The 'clamity os pkg' module is an abstraction for OS package
@@ -264,14 +261,9 @@ function update_pkg_mgr {
 	esac
 }
 
-[ -z "$1" ] && {
-	_brief_usage "$customCmdDesc" "$subcmd"
-	exit 1
-}
-[ "$1" == help ] && {
-	_sub_man_page "$customCmdDesc" "$subcmd"
-	exit 1
-}
+cmd=$(_cmd_from_full_subcmd "$0")
+subcmd=$(basename "$0")
+_usage "$customCmdDesc" "$cmd" "$subcmd" -command || exit 1
 
 # For sub-commands that require actions (sub-sub-commands)
 action="$1" && shift
@@ -313,6 +305,10 @@ selfupdate)
 	update_pkg_mgr "$@"
 	exit $?
 	;;
-*) _error "unknown pkg command ($action)" && run-yadt clamity os pkg && exit 1 ;;
+*)
+	[ -n "$action" ] && _error "unknown $cmd sub-command ($action)"
+	_usage "$customCmdDesc" "$subcmd" "" -command
+	exit 1
+	;;
 esac
 exit 0

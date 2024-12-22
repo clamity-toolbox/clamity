@@ -65,18 +65,16 @@ function show_context {
     aws_context
 }
 
-cmd=$(basename $0)
-[ -z "$1" ] && {
-    _usage "$customCmdDesc" "$cmd"
-    exit 1
-}
+cmd=$(basename "$0")
+_usage "$customCmdDesc" "$cmd" "$1" -command || exit 1
 subcmd="$1" && shift
 
-# external sub-command
-if [ -x "$CLAMITY_ROOT/cmds/context.d/$subcmd" ]; then
-    _run_clamity_subcmd "$cmd" "$subcmd" "$@"
+# _cmds_needed cmd1 cmd2 || { _error "Command(s) not found. One of: cmd1 cmd2" && exit 1; }
+
+_sub_command_is_external $cmd $subcmd && {
+    _run_clamity_subcmd $cmd $subcmd "$@"
     exit $?
-fi
+}
 
 # Use the simple shell options parser which includes common options
 # -----------------------------------------------------------------
@@ -97,7 +95,8 @@ show)
     exit $?
     ;;
 *)
-    _usage "$customCmdDesc" "$cmd"
+    _error "unknown $cmd sub-command ($subcmd)"
+    _usage "$customCmdDesc" "$cmd" "" -command
     exit 1
     ;;
 esac

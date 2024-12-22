@@ -227,26 +227,20 @@ function _tfm_state_report {
 	done
 }
 
-[ -z "$subcmd" ] && {
-	_brief_usage "$customCmdDesc" "$subcmd"
-	return 1
-}
-[ "$subcmd" = help ] && {
-	_man_page "$customCmdDesc" "$cmd"
-	return 1
-}
-
-_cmd_exists terraform || _warn "terraform command not found"
-_cmds_needed terraform || {
-	_error "unable to run terraform"
-	return 1
-}
+cmd=tfm
+_usage "$customCmdDesc" "$cmd" "$1" -command || return 1
+subcmd="$1" && shift
 
 # Establish this is a clamity compatible terraform repo
 TFM_REPO_ROOT="$(_git_repo_root)"
 tfmRepo=1
 [ -f "$TFM_REPO_ROOT/.clamity/config/settings.sh" ] && grep -q '^terraform_repo=1$' "$TFM_REPO_ROOT/.clamity/config/settings.sh" || tfmRepo=0
 [ -z "$TFM_REPO_ROOT" -o $tfmRepo -eq 0 ] && echo "this does not look like a clamity compatible terraform repo" && return 1
+
+_cmds_needed terraform script || {
+	_error "one or more commands not found: terraform, script"
+	return 1
+}
 
 _set_aws_profile || return 1
 
@@ -267,18 +261,18 @@ fi
 
 rc=0
 case "$subcmd" in
-record-results) {
+record-results)
 	_tfm_record_results || rc=1
-} ;;
-settings) {
+	;;
+settings)
 	_tfm_set_props "$@" || rc=1
-} ;;
-state-report) {
+	;;
+state-report)
 	_tfm_state_report "$@" || rc=1
-} ;;
-*) {
+	;;
+*)
 	_vecho "passing command thru to terraform..." && _run terraform "$subcmd" "$@" || rc=1
-} ;;
+	;;
 esac
 
 _reset_aws_profile

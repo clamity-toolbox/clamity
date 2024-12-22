@@ -6,12 +6,6 @@
 source $CLAMITY_ROOT/lib/_.sh || return 1
 source $CLAMITY_ROOT/etc/options/common.sh || return 1
 
-cmd=config
-subcmd="$1"
-[ -n "$subcmd" ] && shift
-
-_trace "config.sh> CLAMITY_os_preferred_pkg_mgr=$CLAMITY_os_preferred_pkg_mgr"
-
 # ---------------------------------------------------------------------------
 # Define content for brief help and the manpage for this command. Comment out
 # any that does not apply. The formatting of the strings is important to
@@ -21,16 +15,14 @@ _trace "config.sh> CLAMITY_os_preferred_pkg_mgr=$CLAMITY_os_preferred_pkg_mgr"
 # More descriptive overview of the command. Paragraph(s) allowed. This is
 # included on a man page. (REQUIRED)
 __Abstract="
-	The config cmd is where you manage your clamity settings. When
-	you set an option, you define it in your current shell only.
-	When you set it as a default, you set it in your current shell
-	_and_ in a local file that will be seen by all active and future
-	clamity	terminal shells.
+	config manages your clamity settings. When you set an option, you
+	define it in your current shell only. When you set it as a default,
+	you set it in your current shell _and_ in a local file that will be
+	seen by all active and future clamity terminal shells.
 
-	Unsetting a variable affects both the current shell and if
-	default is specified, removes the setting accordingly. However,
-	unsetting a variable will _not_ affect other active shells. For
-	this, each shell would have to run 'clamity config reset'.
+	Unsetting a variable affects both the current shell and, if default
+	is specified, removes the setting from the local file. Note that
+	unsetting a variable will _not_ affect other active shells.
 "
 
 # one or more lines detailing usage patterns (REQUIRED)
@@ -45,7 +37,7 @@ __Usage="
 __CommandOptions="DESCRIPTIONS
 
 	list
-		list common config options
+		list common config options.
 
 	set ['default'] <config-opt> <value>
 		Sets a configuration option <config-opt>. For a list of _some_
@@ -217,21 +209,34 @@ function _c_set_config {
 	_c_unset_var "$prop" "$setAsDefault"
 }
 
-[ -z "$subcmd" ] && {
-	_brief_usage "$customCmdDesc" "$subcmd"
-	return 1
+cmd=config
+_usage "$customCmdDesc" "$cmd" "$1" -command || return 1
+subcmd="$1" && shift
+
+# _cmds_needed cmd1 cmd2 || { _error "Command(s) not found. One of: cmd1 cmd2" && exit 1; }
+
+_sub_command_is_external $cmd $subcmd && {
+	_run_clamity_subcmd $cmd $subcmd "$@"
+	return $?
 }
-[ "$subcmd" = help ] && {
-	_man_page "$customCmdDesc" "$cmd"
-	return 1
-}
-_trace "config.sh> $CLAMITY_os_preferred_pkg_mgr=CLAMITY_os_preferred_pkg_mgr"
+
+_trace "config.sh> CLAMITY_os_preferred_pkg_mgr=$CLAMITY_os_preferred_pkg_mgr"
 
 # Execute sub-commands
 case "$subcmd" in
-show) _c_show_config_settings "$@" || return 1 ;;
-set | unset) _c_set_config "$subcmd" "$@" || return 1 ;;
-list) _print_clamity_config_options || return 1 ;;
-*) _warn "unknown sub-command $subcmd. Try 'help'." && return 1 ;;
+show)
+	_c_show_config_settings "$@" || return 1
+	;;
+set | unset)
+	_c_set_config "$subcmd" "$@" || return 1
+	;;
+list)
+	_print_clamity_config_options || return 1
+	;;
+*)
+	_error "unknown $cmd sub-command ($subcmd)"
+	_usage "$customCmdDesc" "$cmd" "" -command
+	return 1
+	;;
 esac
 return 0

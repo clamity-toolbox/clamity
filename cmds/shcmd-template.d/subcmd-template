@@ -4,9 +4,6 @@
 
 source $CLAMITY_ROOT/lib/_.sh || exit 1
 
-cmd="`dirname $0|rev|cut -f1 -d/|rev|cut -f1 -d.`"  # shcmd-template
-subcmd="`basename $0`"                              # subcmd-template
-
 # ---------------------------------------------------------------------------
 # Define content for brief help and the manpage for this command. Comment out
 # any that does not apply. The formatting of the strings is important to
@@ -59,7 +56,6 @@ __Examples="
 "
 # ---------------------------------------------------------------------------
 
-
 # ---------------------------------------------------------------------------
 # Add locally impleneted sub commands to usage.
 # Note how each command is on its own line prefixed with '\n\t'.
@@ -69,16 +65,15 @@ customCmdDesc="
 "
 # ---------------------------------------------------------------------------
 
-
 # If this script help the code to do the sub-command
 function do_sub_task {
 	# return 0 if successful, else 1
 	return 0
 }
 
-
-[ -z "$1" ] && { _brief_usage "$customCmdDesc" "$subcmd"; exit 1; }
-[ "$1" == help ] && { _sub_man_page "$customCmdDesc" "$subcmd"; exit 1; }
+cmd=$(_cmd_from_full_subcmd "$0")
+subcmd=$(basename "$0")
+_usage "$customCmdDesc" "$cmd" "$subcmd" -command || exit 1
 
 # For sub-commands that require actions (sub-sub-commands)
 action="$1" && shift
@@ -93,20 +88,23 @@ _debug "cmd=$cmd, subcmd=$subcmd, action=$action"
 #   CLAMITY_optWithValue2="<xxxx>"        # "green" if '--optWithValue2 green' else "<default-val>"
 #   CLAMITY_optWithValue="<user-input>"   # "green" if '--optWithVal green' else not set
 setup_clamity_options_parser \
-	boolOpttName  --bool-opt   1                 0 \
-	optVarName    --opt-name   "<value-if-set>"  "<default>" \
-	optWithValue2 --val-opt2   :                 "<default-val>" \
-	optWithValue  --val-opt    :                 ""          # : expects 1 arg
+	boolOpttName --bool-opt 1 0 \
+	optVarName --opt-name "<value-if-set>" "<default>" \
+	optWithValue2 --val-opt2 : "<default-val>" \
+	optWithValue --val-opt : "" # : expects 1 arg
 
 parse_clamity_options "$@"
-eval set -- ${PARGS_POSITIONAL}   # accomodates '--' for positional args
-# "$@" now represents positional args. CLAMITY_* vars set (and exported)
-
+eval set -- ${PARGS_POSITIONAL} # accomodates '--' for positional args
+# "$@" are positional args. CLAMITY_* vars set (and exported)
 
 # Execute various sub-functions based on sub-command
 case "$action" in
-	# call internally defined functions
-	subtask) do_sub_task "$@" || exit 1;;
-	*) _error "unknown action $action"; exit 1;;
+# call internally defined functions
+subtask) do_sub_task "$@" || exit 1 ;;
+*)
+	[ -n "$action" ] && _error "unknown $cmd sub-command ($action)"
+	_usage "$customCmdDesc" "$subcmd" "" -command
+	exit 1
+	;;
 esac
 exit 0

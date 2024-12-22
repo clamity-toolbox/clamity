@@ -1,0 +1,72 @@
+#!/usr/bin/env bash
+
+# desc: work with cron
+
+# usage: clamity os pkg {pkg-command} [ --opt-a | --opt-name <name> ]
+
+source $CLAMITY_ROOT/lib/_.sh || exit 1
+
+# ------------------------------------------------
+__Abstract="
+	Work with user cron tab.
+"
+
+__Usage="
+	clamity os cron { show }
+"
+
+__CommandOptions="
+	--no-op
+		Do nothing.
+"
+
+__EnvironmentVariables=""
+# 	CLAMITY_os_preferred_pkg_mgr
+# 		Supported package managers: brew | port | yum | apt
+# "
+
+__Examples="
+	Examples are needed.
+"
+
+# If you define sub-commands in this script or external to the $cmd.d/ dir, add
+# them to 'customCmdDesc'. Note how each command is on its own line prefixed
+# with '\n\t'.
+
+# customCmdDesc=""
+customCmdDesc="
+\n\tshow - print your crontab"
+# ------------------------------------------------
+
+cmd=$(_cmd_from_full_subcmd "$0")
+subcmd=$(basename "$0")
+_usage "$customCmdDesc" "$cmd" "$subcmd" -command || exit 1
+
+# For sub-commands that require actions (sub-sub-commands)
+action="$1" && shift
+
+# Simple shell options parser - includes common options
+# ---------------------------
+# Options are export env vars prefixed with CLAMITY_. eg.
+#   CLAMITY_verbose="1"
+#   CLAMITY_optWithValue="sub-value"
+# setup_clamity_options_parser \
+# 	AskToInstall --ask-to-install 1 0
+# optVarName    --opt-name    "<value-if-set>"  "<default>" \
+# boolOpttName  --opt2-name   1                 0 \
+# optWithValue  --val-opt     :                 ""       # : expects 1 arg
+
+eval set -- $PARGS_POSITIONAL # accomodates '--' for positional args
+# "$@" now represents positional args. CLAMITY_* vars set (and exported)
+
+case "$action" in
+show)
+	_run crontab -l || exit 1
+	;;
+*)
+	[ -n "$action" ] && _error "unknown $cmd sub-command ($action)"
+	_usage "$customCmdDesc" "$subcmd" "" -command
+	exit 1
+	;;
+esac
+exit 0

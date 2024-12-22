@@ -1,38 +1,25 @@
-# desc: mutate the shell's environment in useful ways
+#!/usr/bin/env bash
 
-# THIS FILE IS SOURCED INTO, AND THEREFORE MUTATES, THE CURRENT SHELL
-# supported shells: bash, zsh
+# desc: run with the clamity python environment (clam-py)
 
 source $CLAMITY_ROOT/lib/_.sh || return 1
 
-# ---------------------------------------------------------------------------
-# Define content for brief help and the manpage for this command. Comment out
-# any that does not apply. The formatting of the strings is important to
-# maintain - shell data handling is simplistic.
-# ---------------------------------------------------------------------------
-
-# More descriptive overview of the command. Paragraph(s) allowed. This is
-# included on a man page. (REQUIRED)
 __Abstract="
-	Mutate the current shell environment.
+	Work with the clamity python virtual environment & run python scripts.
 "
 
 # one or more lines detailing usage patterns (REQUIRED)
 __Usage="
-	clamity env activate-python
-	clamity env aws-profile [<profile-to-set>]
+	clamity py { activate }
+	clamity py <python-command> <args>
 "
 
 # Don't include common options here
-__CommandOptions="
-	None
+__CommandOptions="DESCRIPTIONS
 
-MORE
-
-	activate-python
-		Adds the clamity python virtual environment's bin/ directory to your
-		shell's search path (PATH) making python package commands available.
-		This will also reset your default python3 version to clamity's.
+	activate
+		Activates a session with the clamity python virtual environment. To
+		exit the session, type 'deactivate'.
 "
 
 # For commands that have their own special env vars, inlude this section in
@@ -79,22 +66,11 @@ __Examples=""
 # Note how each command is on its own line prefixed with '\n\t'.
 
 customCmdDesc="
-\n\tactivate-python - activate clamity's python virtual environment
-\n\taws-profile - manage AWS profile settings
+\n\tactivate - activate clamity's python virtual environment
 "
 # ---------------------------------------------------------------------------
 
-function _aws_profile {
-	[ -z "$1" ] && {
-		_run aws configure list-profiles
-		return $?
-	}
-	aws configure list-profiles 2>/dev/null | grep -q "^$1$" && _run export AWS_PROFILE="$1" && return 0
-	_error "bad profile: $1"
-	return 1
-}
-
-cmd=env
+cmd=py
 _usage "$customCmdDesc" "$cmd" "$1" -command || return 1
 subcmd="$1" && shift
 
@@ -107,16 +83,13 @@ _sub_command_is_external $cmd $subcmd && {
 
 # Execute sub-commands
 case "$subcmd" in
-activate-python)
+activate)
+	$CLAMITY_ROOT/bin/clam-py activate
 	eval $($CLAMITY_ROOT/bin/clam-py activate)
 	;;
-aws-profile)
-	_aws_profile "$@"
-	;;
 *)
-	_error "unknown $cmd sub-command ($subcmd)"
-	_usage "$customCmdDesc" "$cmd" "" -command
-	return 1
+	_run $CLAMITY_ROOT/bin/clam-py "$subcmd" "$@"
+	return $?
 	;;
 esac
 return 0

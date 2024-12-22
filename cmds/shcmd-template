@@ -22,7 +22,7 @@ __Abstract="
 
 # one or more lines detailing usage patterns (REQUIRED)
 __Usage="
-	clamity `basename $0` {sub-command} [options] [[--] positional-args]
+	clamity $(basename $0) {sub-command} [options] [[--] positional-args]
 "
 
 # Don't include common options here
@@ -64,8 +64,6 @@ __Examples="
 "
 # ---------------------------------------------------------------------------
 
-
-
 # ---------------------------------------------------------------------------
 # Locally implement sub command help
 #
@@ -81,8 +79,6 @@ customCmdDesc="
 \n\tshow-opts - report options
 "
 # ---------------------------------------------------------------------------
-
-
 
 # --------------------------------------------------
 # Optional local functions here
@@ -106,23 +102,21 @@ optA:            $CLAMITY_optA
 Positional Args: ""$@"
 
 	_echo -e "\nEnvironment"
-	env |grep ^CLAMITY_
+	env | grep ^CLAMITY_
 	_echo
 }
 # --------------------------------------------------
 
+cmd=$(basename "$0")
+_usage "$customCmdDesc" "$cmd" "$1" -command || exit 1
+subcmd="$1" && shift
 
-cmd=`basename $0`
-[ -n "$1" ] && subcmd="$1" && shift || subcmd=""
+# _cmds_needed cmd1 cmd2 || { _error "Command(s) not found. One of: cmd1 cmd2" && exit 1; }
 
-# -----------------------------------------------------------------
-# Execute external sub-command
-# -----------------------------------------------------------------
-if [ -x "$CLAMITY_ROOT/cmds/os.d/$subcmd" ]; then
-	_run_clamity_subcmd "$cmd" "$subcmd" "$@"
+_sub_command_is_external $cmd $subcmd && {
+	_run_clamity_subcmd $cmd $subcmd "$@"
 	exit $?
-fi
-
+}
 
 # -----------------------------------------------------------------
 # Use the simple shell options parser which includes common options
@@ -134,21 +128,31 @@ fi
 #
 # Options are exported env vars prefixed with CLAMITY_. eg.  CLAMITY_verbose="1"
 setup_clamity_options_parser \
-	optName       --opt-name    :                 "" \
-	optA          --opt-a       1                 0
+	optName --opt-name : "" \
+	optA --opt-a 1 0
 parse_clamity_options "$@"
-eval set -- $PARGS_POSITIONAL     # accomodates '--' for positional args
+eval set -- $PARGS_POSITIONAL # accomodates '--' for positional args
 # "$@" now represents positional args. CLAMITY_* vars set (and exported)
-
 
 # -----------------------------------------------------------------
 # Execute internal sub-commands
 # -----------------------------------------------------------------
 case "$subcmd" in
-	this) sub_cmd_this "$optA" "$optName" "$@" || exit 1;;
-	that) do_that "$@" || exit 1;;
-	show-opts) report_options; exit 0;;
-	*) _usage "$customCmdDesc" "$cmd"; exit 1;;
+this)
+	sub_cmd_this "$optA" "$optName" "$@" || exit 1
+	;;
+that)
+	do_that "$@" || exit 1
+	;;
+show-opts)
+	report_options
+	exit 0
+	;;
+*)
+	_error "unknown $cmd sub-command ($subcmd)"
+	_usage "$customCmdDesc" "$cmd" "" -command
+	exit 1
+	;;
 esac
 
 exit 0

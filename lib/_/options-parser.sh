@@ -21,6 +21,11 @@
 
 # --------------------------------
 
+# need a good way to put common options in one place for all
+source $CLAMITY_ROOT/etc/options/common.sh || return 1
+
+# --------------------------------
+
 # Usage statements are generated on demand relying upon the '# desc:' comment
 # line in all command and sub-command scripts.
 #
@@ -31,34 +36,40 @@ function __desc_of { # pull the description of a command from the comment
 	grep '^# desc:' "$1" | cut -f2 -d: | _ltrim
 }
 
-function _usage { # standard command usage (see cmds/_templates/)
-	local customCmdDesc="$1" cmd="$2" subcmd="$3"
-	[ -z "$subcmd" ] && _brief_usage "$customCmdDesc" "$cmd" "$subcmd" && return 1
-	# shift 3
-	[ "$subcmd" = help ] && __usage_help "$customCmdDesc" "$cmd" "$subcmd" | less && return 1
+function _cmd_from_full_subcmd { # return the command name from a sub-command
+	dirname "$1" | rev | cut -f1 -d/ | rev | cut -f1 -d.
+}
+
+function _man_page { # print full man page with a pager (less)
+	local customCmdDesc="$1" cmd="$2" flags="$3"
+	_full_man_page "$customCmdDesc" "$cmd" "$flags" | less
+}
+
+function _brief_usage { # print USAGE and ACTION sections (no pager)
+	local customCmdDesc="$1" cmd="$2" flags="$3"
+	echo -e "USAGE\n$__Usage"
+	[ -z "$flags" ] && flags="-action"
+	__describe_sub_commands "$customCmdDesc" "$cmd" "$flags"
+	return 0
+}
+
+function _usage { # { print brief usage if no sub-command | full man page if 'help' & return 1 } else return 0
+	local customCmdDesc="$1" cmd="$2" subcmd="$3" flags="$4"
+	[ -z "$subcmd" ] && _brief_usage "$customCmdDesc" "$cmd" "$flags" && return 1
+	[ "$subcmd" = help ] && _man_page "$customCmdDesc" "$cmd" "$flags" && return 1
 	# no usage was required, return success
 	return 0
 }
 
-function _brief_usage {
-	local customCmdDesc="$1" cmd="$2"
-	echo -e "USAGE\n$__Usage"
-	__describe_sub_commands "$customCmdDesc" "$cmd" action
-	return 0
-}
-
-function _sub_man_page {
-	local customCmdDesc="$1" subcmd="$2"
-	__usage_help "$customCmdDesc" "$subcmd" action | less
-}
-
-function _man_page {
-	local customCmdDesc="$1" cmd="$2" flags="$3"
-	__usage_help "$customCmdDesc" "$cmd" "$flags" | less
-}
-
-function __usage_help {
-	local customCmdDesc="$1" cmd="$2" flags="$3"
+function _full_man_page { # print full man page (all sections)
+	local customCmdDesc="$1"
+	local cmd="$2"
+	local flags="$3"
+	# Sections:
+	#   USAGE, ABSTRACT, COMMADS|SUB-COMMANDS|ACTIONS, COMMAND OPTIONS|DESCRIPTIONS, COMMON OPTIONS, ENV VARS, EXAMPLES
+	# flags:
+	#   'action' - use ACTION as commands section title
+	#   '-no-common-opts' - exclude COMMON OPTIONS section
 	echo -e "USAGE\n$__Usage"
 	echo -e "ABSTRACT\n\t$__Abstract"
 	__describe_sub_commands "$customCmdDesc" "$cmd" "$flags"
@@ -70,20 +81,26 @@ function __usage_help {
 	return 0
 }
 
-function __describe_sub_commands { # print cmds descriptions
+function __describe_sub_commands { # print cmd descriptions (COMMANDS | SUB-COMMANDS | ACTIONS)
 	local customUsage="$1"            # custom string prefixed to sub commands section
 	local cmd="$2"                    # usage for this sub command or clamity string for top level
-	local flags="$3"
+	local flags="$3"                  # 'action'='$CMD ACTIONS', 'command'='$CMD COMMANDS' as section title
+	# section titles:
+	#  COMMANDS: top level 'clamity' commands
+	#  ACTIONS: if $flags includes 'action'
+	#  SUB-COMMANDS: otherwise
 	local dir="$CLAMITY_ROOT/cmds/$cmd.d"
-
 	local optsTitlePrefix="SUB-"
 	local optsTitle="COMMANDS"
 	[ "$cmd" = clamity ] && cmd=clamity && dir="$CLAMITY_ROOT/cmds" && optsTitlePrefix=""
 	echo "$flags" | grep -q 'action' && optsTitlePrefix="" && optsTitle="ACTIONS"
+	echo "$flags" | grep -q 'command' && optsTitlePrefix=""
 
+	# customUsage contains optional command descriptions to be included
 	[ -n "$customUsage" ] && echo -e "$customUsage" >/tmp/usage$$ || echo -e "" >/tmp/usage$$
+
+	# pull out the '# desc:' string from all sub-command scripts
 	if [ -d "$dir" ]; then
-		# pull out the '# desc:' string from all sub-command scripts
 		local _cmd
 		for _cmd in $(cd "$dir" && ls); do
 			[ ! -x $dir/$_cmd -o -d $dir/$_cmd ] && continue
@@ -91,11 +108,15 @@ function __describe_sub_commands { # print cmds descriptions
 			echo -e "\t$dispCmd - $(__desc_of $dir/$_cmd)" >>/tmp/usage$$
 		done
 	fi
+
+	# print section title and command descriptions
 	if [ $(cat /tmp/usage$$ | grep -v '^$' | wc -l) -gt 0 ]; then
 		echo -e "$(echo $cmd | tr '[a-z]' '[A-Z]') ${optsTitlePrefix}${optsTitle}\n" || echo
 		cat /tmp/usage$$ | grep -v '^$' | sort
 		echo
 	fi
+
+	# cleanup
 	/bin/rm -f /tmp/usage$$
 	return 0
 }
@@ -126,8 +147,6 @@ function __describe_sub_commands { # print cmds descriptions
 # identify the start of positional arguments.
 #
 # eval set -- ${PARGS_POSITIONAL[@]}
-
-source $CLAMITY_ROOT/etc/options/common.sh || return 1
 
 # This should all sync up with etc/options/*.json.
 # It's probably not tenable

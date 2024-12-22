@@ -12,7 +12,7 @@ __Abstract="
 "
 
 __Usage="
-	clamity `basename $0` { <sub-command> } [options]
+	clamity $(basename $0) { <sub-command> } [options]
 "
 
 __CommandOptions="
@@ -33,7 +33,6 @@ __Examples="
 		ls /tmp
 "
 
-
 # Help for local sub-commands
 # ---------------------------
 # If you define sub-commands in this script or external to the $cmd.d/ dir, add
@@ -45,22 +44,23 @@ customCmdDesc="
 \n\tpm - power management
 "
 
-
 function check_os {
-	for cmd in brew port python3 pip3 aws
-	do
+	for cmd in brew port python3 pip3 aws; do
 		_echo -n "$cmd: "
-		`which $cmd >/dev/null 2>&1` || { _echo "not found" && continue; }
+		$(which $cmd >/dev/null 2>&1) || { _echo "not found" && continue; }
 		case $cmd in
-			python3|pip3)
-				echo "`$cmd --version` [`which $cmd`]"
-				;;
-			aws|brew|aws)
-				$cmd --version;;
-			port)
-				$cmd version;;
-			*)
-				echo found;;
+		python3 | pip3)
+			echo "$($cmd --version) [$(which $cmd)]"
+			;;
+		aws | brew | aws)
+			$cmd --version
+			;;
+		port)
+			$cmd version
+			;;
+		*)
+			echo found
+			;;
 		esac
 	done
 	return 0
@@ -77,47 +77,56 @@ function power_mgmt_usage {
 }
 
 function power_mgmt {
-	[ "`_os`" != macos ] && echo "power management only supported for macos" && return 1
+	[ "$(_os)" != macos ] && echo "power management only supported for macos" && return 1
 	[ -z "$1" ] && power_mgmt_usage && return 1
 	local rc=0
 	case "$1" in
-		disksleep)
-			[ -z "$2" ] && pmset -g|grep disksleep || _sudo pmset -a disksleep $2; rc=$?
-			return $rc;;
-		show)
-			pmset -g; return $?;;
-		*)
-			_error "unknown attribute ($1)." && power_mgmt_usage && return 1;;
+	disksleep)
+		[ -z "$2" ] && pmset -g | grep disksleep || _sudo pmset -a disksleep $2
+		rc=$?
+		return $rc
+		;;
+	show)
+		pmset -g
+		return $?
+		;;
+	*)
+		_error "unknown attribute ($1)." && power_mgmt_usage && return 1
+		;;
 	esac
 }
 
-cmd=`basename $0`
-[ -z "$1" ] && { _usage "$customCmdDesc" "$cmd"; exit 1; }
+cmd=$(basename "$0")
+_usage "$customCmdDesc" "$cmd" "$1" -command || exit 1
 subcmd="$1" && shift
 
-# external sub-command
-if [ -x "$CLAMITY_ROOT/cmds/os.d/$subcmd" ]; then
-	_run_clamity_subcmd "$cmd" "$subcmd" "$@"
+# _cmds_needed cmd1 cmd2 || { _error "Command(s) not found. One of: cmd1 cmd2" && exit 1; }
+
+_sub_command_is_external $cmd $subcmd && {
+	_run_clamity_subcmd $cmd $subcmd "$@"
 	exit $?
-fi
+}
 
 # Use the simple shell options parser which includes common options
 # -----------------------------------------------------------------
 # Options are exported env vars prefixed with CLAMITY_. eg.  CLAMITY_verbose="1"
 setup_clamity_options_parser \
-	Level1 --level1  1  0
-	# optVarName    --opt-name    "<value-if-set>"  "<default>" \
-	# boolOpttName  --opt2-name   1                 0 \
-	# optWithValue  --val-opt     :                 ""       # : expects 1 arg
+	Level1 --level1 1 0
+# optVarName    --opt-name    "<value-if-set>"  "<default>" \
+# boolOpttName  --opt2-name   1                 0 \
+# optWithValue  --val-opt     :                 ""       # : expects 1 arg
 parse_clamity_options "$@"
-eval set -- $PARGS_POSITIONAL     # accomodates '--' for positional args
+eval set -- $PARGS_POSITIONAL # accomodates '--' for positional args
 # "$@" now represents positional args. CLAMITY_* vars set (and exported)
-
 
 # internal command
 case "$subcmd" in
-	check) check_os "$@" || exit 1;;
-	pm) power_mgmt "$@" || exit 1;;
-	*) _usage "$customCmdDesc" "$cmd"; exit 1;;
+check) check_os "$@" || exit 1 ;;
+pm) power_mgmt "$@" || exit 1 ;;
+*)
+	_error "unknown $cmd sub-command ($subcmd)"
+	_usage "$customCmdDesc" "$cmd" "" -command
+	exit 1
+	;;
 esac
 exit 0

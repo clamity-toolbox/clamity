@@ -5,10 +5,6 @@
 
 source $CLAMITY_ROOT/lib/_.sh || return 1
 
-cmd=aws
-subcmd="$1"
-[ -n "$subcmd" ] && shift
-
 # More descriptive overview of the command. Paragraph(s) allowed. This is
 # included on a man page. (REQUIRED)
 __Abstract="
@@ -34,25 +30,16 @@ function _caws_login {
 	_run aws sso login --sso-session $session
 }
 
-# [ -z "$subcmd" ] && {
-# 	_brief_usage "$customCmdDesc" "$cmd"
-# 	# _usage "$customCmdDesc" "$cmd"
-# 	return 1
-# }
-_usage "$customCmdDesc" "$cmd" "$subcmd" || return 1
-# [ "$subcmd" = help ] && {
-# 	_man_page "$customCmdDesc" "$cmd"
-# 	return 1
-# }
+cmd=aws
+_usage "$customCmdDesc" "$cmd" "$1" -command || return 1
+subcmd="$1" && shift
 
-_cmd_exists aws || _warn "aws command not found"
-_cmds_needed aws || {
-	_error "unable to run aws CLI"
-	return 1
+_cmds_needed aws || { _error "unable to run aws CLI" && return 1; }
+
+_sub_command_is_external $cmd $subcmd && {
+	_run_clamity_subcmd $cmd $subcmd "$@"
+	return $?
 }
-
-[ -x "$CLAMITY_ROOT/cmds/aws.d/$subcmd.py" ] && { "$CLAMITY_ROOT/bin/clam-py" "$CLAMITY_ROOT/cmds/aws.d/$subcmd.py" "$@"; return $?; }
-[ -x "$CLAMITY_ROOT/cmds/aws.d/$subcmd" ] && { "$CLAMITY_ROOT/cmds/aws.d/$subcmd" "$@"; return $?; }
 
 case "$subcmd" in
 login)
@@ -67,8 +54,11 @@ profile)
 	clamity env aws-profile "$@"
 	return $?
 	;;
+*)
+	_vecho "passing command thru to the aws cli..."
+	_run aws "$subcmd" "$@"
+	return $?
+	;;
 esac
 
 # aws sts assume-role --role-arn "arn:aws:iam::12345678:role/OrganizationAccountAccessRole" --role-session-name aws
-_vecho "passing command thru to the aws cli..."
-_run aws "$subcmd" "$@"
