@@ -49,7 +49,7 @@ __Examples="
 
 # customCmdDesc=""
 customCmdDesc="
-\n\tabstracted - list abstracted packages
+\n\tspecial - list abstracted packages & custom installations
 \n\tinstall - install packages
 \n\tinstalled - check to see if a package is installed
 \n\tselfupdate - update package manager and packages
@@ -65,8 +65,8 @@ function get_pkg_mgr {
 }
 
 function set_pkg_mgr_to {
-	echo "OVER HERE"
 	_run $CLAMITY_ROOT/bin/run-clamity config set default os_preferred_pkg_mgr $1
+	export CLAMITY_os_preferred_pkg_mgr=$1
 }
 
 function select_macos_pkg_mgr {
@@ -77,6 +77,15 @@ function select_macos_pkg_mgr {
 	[ $macports -eq 1 ] && _ask "Do you want macports as your default pkg manager (y/N)? " && set_pkg_mgr_to port && return 0
 	[ $homebrew -eq 1 ] && _ask "Do you want homebrew as your default pkg manager (y/N)? " && set_pkg_mgr_to brew && return 0
 	return 1
+}
+
+function confirm_pkg_mgr {
+	if [ -z "$(get_pkg_mgr)" ]; then
+		_warn "no preferred package manager selected"
+		select_macos_pkg_mgr
+		[ -z "$(get_pkg_mgr)" ] && return 1
+	fi
+	return 0
 }
 
 # # return the preferred package manager to use (offer to select if need be)
@@ -102,18 +111,20 @@ function select_macos_pkg_mgr {
 
 # ---------- ABSTRACTED PACKAGES
 # pkg | min version | src {python|os} | brief desc
-AbstractedPaackages="
-aws|2|python|aws cli utility
-python3|3.10|os|python3 interpreter used to create virtual env
-"
+
+# AbstractedPackages="
+# aws|2|python|aws cli utility
+# python3|3.10|os|python3 interpreter used to create virtual env
+# "
 
 # _ABSTRACTED_PKGS="awscli|awscliv2|docker|iptables|mail|mariadb|mysql|nginx|parallel|powershell|python|newrelic|vscode"
-_ABSTRACTED_PKGS="aws|python3"
 
-function list_abstracted {
+_ABSTRACTED_PKGS="aws"
+
+function list_special {
 	echo "
-aws           aws cli utility (>= 2.x)
-python3       python3 (>= 3.10.x)
+aws             AWS CLI v2 (macos) [https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html]
+supabase-cli    (requires honmebrew) [https://supabase.com/docs/guides/local-development/cli/getting-started]
 "
 	# docker        docker server
 	# iptables      iptables port redirection service (v4 only)
@@ -202,12 +213,34 @@ function install_abstracted_pkg {
 # 	return $rc
 # }
 
-function confirm_pkg_mgr {
-	if [ -z "$(get_pkg_mgr)" ]; then
-		_warn "no preferred package manager selected"
-		select_macos_pkg_mgr
-		[ -z "$(get_pkg_mgr)" ] && return 1
-	fi
+function install_brew_pkg {
+	local pkg="$1"
+	case "$pkg" in
+	supabase-cli)
+		_run brew install supabase/tap/supabase || return 1
+		;;
+	*)
+		_run brew install $cmd || return 1
+		;;
+	esac
+	return 0
+}
+
+function install_port_pkg {
+	local pkg="$1"
+	case "$pkg" in
+	supabase-cli)
+		_error "supabase CLI not available for macports" && return 1
+		;;
+	*)
+		_run sudo port install $pkg || return 1
+		if [ $(port installed | grep " ${pkg}_select " | wc -l) -eq 1 ]; then
+			# for packages that utilize 'port select', select the most recent
+			local whichPort=$(port select --summary | grep "^$pkg " | awk '{$1=$2=""; print $0}' | awk '{print $(NF-1)}')
+			[ -n "$whichPort" ] && _run sudo port select $pkg $whichPort || return 1
+		fi
+		;;
+	esac
 	return 0
 }
 
@@ -222,15 +255,10 @@ function install_pkg {
 	}
 	case "$CLAMITY_os_preferred_pkg_mgr" in
 	port)
-		_run sudo port install $cmd || return 1
-		if [ $(port installed | grep " ${cmd}_select " | wc -l) -eq 1 ]; then
-			# for packages that utilize 'port select', select the most recent
-			local whichPort=$(port select --summary | grep "^$cmd " | awk '{$1=$2=""; print $0}' | awk '{print $(NF-1)}')
-			[ -n "$whichPort" ] && _run sudo port select $cmd $whichPort || return 1
-		fi
+		install_port_pkg $cmd || return 1
 		;;
 	brew)
-		_run brew install $cmd || return 1
+		install_brew_pkg $cmd || return 1
 		;;
 	*)
 		_error "CLAMITY_os_preferred_pkg_mgr undefined or unknown ($CLAMITY_os_preferred_pkg_mgr)"
@@ -291,8 +319,8 @@ eval set -- $PARGS_POSITIONAL # accomodates '--' for positional args
 # "$@" now represents positional args. CLAMITY_* vars set (and exported)
 
 case "$action" in
-abstracted)
-	list_abstracted
+special)
+	list_special
 	exit 1
 	;;
 install)
