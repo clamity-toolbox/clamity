@@ -32,6 +32,21 @@ source $CLAMITY_ROOT/etc/options/common.sh || return 1
 # Man Pages for commands are implemented as sspecial functions named
 # 'command_man_page' (one per command). See cmds/_templates/shell-command
 
+function _clear_standard_options {
+	local vars="cmd subcmd __Abstract __Usage __CommandOptions __EnvironmentVariables __CustomSections __Examples customCmdDesc"
+	local common_opts="_opt_debug _opt_dryrun _opt_output_format _opt_output_redirection _opt_quiet _opt_verbose _opt_yes"
+	local o
+	for o in $vars $common_opts "$@"; do eval "unset $o"; done
+}
+
+function _set_standard_options {
+	{ _is_true $CLAMITY_yes || echo "$@" | egrep -qe '\--yes| -y'; } && _opt_yes=1 || _opt_yes=0
+	{ _is_true $CLAMITY_verbose || echo "$@" | egrep -qe '\--verbose| -v'; } && _opt_verbose=1 || _opt_verbose=0
+	{ _is_true $CLAMITY_debug || echo "$@" | egrep -qe '\--debug| -d'; } && _opt_debug=1 || _opt_debug=0
+	{ _is_true $CLAMITY_dryrun || echo "$@" | egrep -qe '\--dryrun| -n'; } && _opt_dryrun=1 || _opt_dryrun=0
+	{ _is_true $CLAMITY_quiet || echo "$@" | egrep -qe '\--quiet| -q'; } && _opt_quiet=1 || _opt_quiet=0
+}
+
 function __desc_of { # pull the description of a command from the comment
 	grep '^# desc:' "$1" | cut -f2 -d: | _ltrim
 }
@@ -73,7 +88,7 @@ function _full_man_page { # print full man page (all sections)
 	echo -e "USAGE\n$__Usage"
 	echo -e "ABSTRACT\n\t$__Abstract"
 	__describe_sub_commands "$customCmdDesc" "$cmd" "$flags"
-	[ -n "$__CommandOptions" ] && echo $__CommandOptions | egrep -qe '^(DESCRIPTIONS)' && echo "$__CommandOptions" || echo -e "COMMAND OPTIONS\n\t$__CommandOptions"
+	[ -n "$__CommandOptions" ] && { echo $__CommandOptions | egrep -qe '^(DESCRIPTIONS)' && echo "$__CommandOptions" || echo -e "COMMAND OPTIONS\n\t$__CommandOptions"; }
 	echo $flags | grep -q '\-no-common-opts' || _parse_options_help common
 	[ -n "$__CustomSections" ] && echo -e "$__CustomSections"
 	[ -n "$__EnvironmentVariables" ] && echo -e "ENVIRONMENT VARIABLES\n\t$__EnvironmentVariables"

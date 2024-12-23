@@ -81,15 +81,21 @@ _sub_command_is_external $cmd $subcmd && {
 	return $?
 }
 
+_set_standard_options "$@"
+# echo "$@" | grep -q '\--no-pkg-mgr' && _opt_no_pkg_mgr=1 || _opt_no_pkg_mgr=0
+
 # Execute sub-commands
+rc=0
 case "$subcmd" in
 activate)
 	$CLAMITY_ROOT/bin/clam-py activate
 	eval $($CLAMITY_ROOT/bin/clam-py activate)
 	;;
 *)
-	_run $CLAMITY_ROOT/bin/clam-py "$subcmd" "$@"
-	return $?
+	_run $CLAMITY_ROOT/bin/clam-py "$subcmd" "$@" || rc=1
 	;;
 esac
+
+# _clear_standard_options _opt_no_pkg_mgr
+_clear_standard_options
 return 0

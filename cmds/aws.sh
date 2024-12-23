@@ -30,6 +30,8 @@ function _caws_login {
 	_run aws sso login --sso-session $session
 }
 
+# aws sts assume-role --role-arn "arn:aws:iam::12345678:role/OrganizationAccountAccessRole" --role-session-name aws
+
 cmd=aws
 _usage "$customCmdDesc" "$cmd" "$1" -command || return 1
 subcmd="$1" && shift
@@ -41,24 +43,26 @@ _sub_command_is_external $cmd $subcmd && {
 	return $?
 }
 
+_set_standard_options "$@"
+# echo "$@" | grep -q '\--no-pkg-mgr' && _opt_no_pkg_mgr=1 || _opt_no_pkg_mgr=0
+
+rc=0
 case "$subcmd" in
 login)
-	_caws_login "$@"
-	return $?
+	_caws_login "$@" || rc=1
 	;;
 whoami)
-	aws sts get-caller-identity
-	return $?
+	aws sts get-caller-identity || rc=1
 	;;
 profile)
-	clamity env aws-profile "$@"
-	return $?
+	clamity env aws-profile "$@" || rc=1
 	;;
 *)
 	_vecho "passing command thru to the aws cli..."
-	_run aws "$subcmd" "$@"
-	return $?
+	_run aws "$subcmd" "$@" || rc=1
 	;;
 esac
 
-# aws sts assume-role --role-arn "arn:aws:iam::12345678:role/OrganizationAccountAccessRole" --role-session-name aws
+# _clear_standard_options _opt_no_pkg_mgr
+_clear_standard_options
+return $rc

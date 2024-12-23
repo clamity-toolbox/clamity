@@ -21,7 +21,7 @@ __Abstract="
 # one or more lines detailing usage patterns (REQUIRED)
 __Usage="
 	clamity selfupdate help
-	clamity selfupdate [ -y ] [ --no-pkg-mgr ]
+	clamity selfupdate [update] [ -y ] [ --no-pkg-mgr ]
 "
 
 # Don't include common options here
@@ -67,40 +67,24 @@ __Examples="
 #
 # Note how each command is on its own line prefixed with '\n\t'.
 
-customCmdDesc=""
+customCmdDesc="
+\n\tupdate - update clamity software (default action)
+"
 # ---------------------------------------------------------------------------
 
-function update_clamity_git_installation {
-	_echo "git repo installation detected"
-	pushd "$CLAMITY_ROOT" || return 1
-	[ $(git status -s | wc -l) -ne 0 ] && {
-		_fatal "git status does not show a clean repo. update aborted." && popd
-		return 1
-	}
-	local rc=0
-	_run git pull origin || rc=1
-	popd || rc=1
-	_echo "software updated. reloading"
-	source "$CLAMITY_HOME/loader.sh"
+function _c_update_git_installation {
+	cd "$CLAMITY_ROOT" || return 1
+	[ $(git status -sb | wc -l) -ne 1 ] && _warn "clamity repo does not look clean" && return 1
+	git pull origin
 }
 
-function update_clamity_tarball_installaton {
+function _c_update_tarball_installaton {
 	_echo "tarball installation assumed (git not detected)."
 	_echo "not implemented yet"
 	return 1
-	pushd "$CLAMITY_ROOT/.." || return 1
-	local clamDirName=$($(basename "$CLAMITY_ROOT"))
-	_run mv "$CLAMITY_ROOT" "$CLAMITY_ROOT.undo" || {
-		_fatal "can't create undo dir" && popd
-		return 1
-	}
-	local rc=0
-	echo "teach me how to do this" || { rc=1 && _fatal "update failed. undoing..." && mv "$CLAMITY_ROOT" "CLAMITY_ROOT.failed" && mv "$CLAMITY_ROOT.undo" "$CLAMITY_ROOT"; }
-	popd
-	return $rc
 }
 
-function backup_clamity {
+function _c_backup_clamity {
 	[ ! -d "$CLAMITY_HOME/backups" ] && { mkdir "$CLAMITY_HOME/backups" || return 1; }
 	pushd "$CLAMITY_ROOT/.." || return 1
 	local rc=0
@@ -116,42 +100,34 @@ function backup_clamity {
 	_run tar --exclude backups/ -czpf backups/$tarball . || rc=1
 	popd || rc=1
 	[ $rc -eq 0 ] && ls -1 $CLAMITY_HOME/backups/*.$now.*
-	[ $rc -eq 0 ] && _run find $CLAMITY_HOME/backups -type f -mtime +$BackupRetentionDays -delete
+	[ $rc -eq 0 ] && _run find $CLAMITY_HOME/backups -type f -mtime +21 -delete
 
 	return $rc
 }
 
-function update_git_installation {
-	cd "$CLAMITY_ROOT" || return 1
-	[ $(git status -sb | wc -l) -ne 1 ] && _warn "clamity repo does not look clean" && return 1
-	git pull origin
-}
-
 function _c_update_clamity {
-	_ask "Backup clamity before we begin (Y/n)? " y && { backup_clamity || return 1; }
-	[ -d "$CLAMITY_ROOT/.git" ] && { update_git_installation || return 1; } || { update_tarball_installaton || return 1; }
+	_ask "Backup clamity before we begin (Y/n)? " y && { _c_backup_clamity || return 1; }
+	[ -d "$CLAMITY_ROOT/.git" ] && { _c_update_git_installation || return 1; } || { _c_update_tarball_installaton || return 1; }
 	_echo "Updating python packages in clamity venv" && _run $CLAMITY_ROOT/bin/clam-py update || return 1
-	if [ "$BackupPackageManager" -eq 1 ]; then
+	if [ "$_opt_no_pkg_mgr" -eq 0 ]; then
 		[ -n "$CLAMITY_os_preferred_pkg_mgr" ] && { _ask "Update OS package manager '$CLAMITY_os_preferred_pkg_mgr' (Y/n) " y && { _run $CLAMITY_ROOT/bin/run-clamity os pkg selfupdate || return 1; }; }
 	fi
 	_clear_clamity_module_cache
 }
 
-unset_yes=0
-BackupPackageManager=1
-BackupRetentionDays=14
 cmd=selfupdate
-[ -z "$1" ] && subcmd=update || { subcmd="$1" && shift; }
+{ [ -z "$1" ] || [[ "$1" = -* ]]; } && subcmd=update || { subcmd="$1" && shift; }
 _usage "$customCmdDesc" "$cmd" "$subcmd" -command || return 1
-[ -z "$CLAMITY_yes" ] && echo "$@" | grep -q '-y' && export CLAMITY_yes=1 && unset_yes=1
-echo "$@" | grep -q '-no-pkg-mgr' && BackupPackageManager=0
 
 # _cmds_needed aws || { _error "unable to run aws CLI" && return 1; }
 
-# _sub_command_is_external $cmd $subcmd && {
-# 	_run_clamity_subcmd $cmd $subcmd "$@"
-# 	return $?
-# }
+_sub_command_is_external $cmd $subcmd && {
+	_run_clamity_subcmd $cmd $subcmd "$@"
+	return $?
+}
+
+_set_standard_options "$@"
+echo "$@" | grep -q '\--no-pkg-mgr' && _opt_no_pkg_mgr=1 || _opt_no_pkg_mgr=0
 
 # Execute sub-commands
 rc=0
@@ -160,9 +136,9 @@ update)
 	_c_update_clamity || rc=1
 	;;
 *)
-	_warn "unknown sub-command $subcmd. Try 'help'." && rc=1
+	_warn "unknown $cmd sub-command '$subcmd'. Try 'clamity $cmd help'." && rc=1
 	;;
 esac
 
-[ $unset_yes -eq 1 ] && unset CLAMITY_yes
+_clear_standard_options _opt_no_pkg_mgr
 return $rc

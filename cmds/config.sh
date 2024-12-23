@@ -220,23 +220,27 @@ _sub_command_is_external $cmd $subcmd && {
 	return $?
 }
 
-_trace "config.sh> CLAMITY_os_preferred_pkg_mgr=$CLAMITY_os_preferred_pkg_mgr"
+_set_standard_options "$@"
+# echo "$@" | grep -q '\--no-pkg-mgr' && _opt_no_pkg_mgr=1 || _opt_no_pkg_mgr=0
 
 # Execute sub-commands
+rc=0
 case "$subcmd" in
 show)
-	_c_show_config_settings "$@" || return 1
+	_c_show_config_settings "$@" || rc=1
 	;;
 set | unset)
-	_c_set_config "$subcmd" "$@" || return 1
+	_c_set_config "$subcmd" "$@" || rc=1
 	;;
 list)
-	_print_clamity_config_options || return 1
+	_print_clamity_config_options || rc=1
 	;;
 *)
 	_error "unknown $cmd sub-command ($subcmd)"
-	_usage "$customCmdDesc" "$cmd" "" -command
-	return 1
+	_usage "$customCmdDesc" "$cmd" "" -command || rc=1
 	;;
 esac
+
+# _clear_standard_options _opt_no_pkg_mgr
+_clear_standard_options
 return 0
