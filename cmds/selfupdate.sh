@@ -72,9 +72,16 @@ customCmdDesc="
 "
 # ---------------------------------------------------------------------------
 
+function _c_clamity_repo_is_clean {
+	local rc=0
+	pushd $CLAMITY_ROOT || return 1
+	[ $(git status -sb | wc -l) -ne 1 ] && _warn "clamity repo does not look clean" && rc=1
+	popd || return 1
+	return $rc
+}
+
 function _c_update_git_installation {
 	cd "$CLAMITY_ROOT" || return 1
-	[ $(git status -sb | wc -l) -ne 1 ] && _warn "clamity repo does not look clean" && return 1
 	git pull origin
 }
 
@@ -106,12 +113,11 @@ function _c_backup_clamity {
 }
 
 function _c_update_clamity {
+	[ -d "$CLAMITY_ROOT/.git" ] && { _c_clamity_repo_is_clean || return 1; }
 	_ask "Backup clamity before we begin (Y/n)? " y && { _c_backup_clamity || return 1; }
 	[ -d "$CLAMITY_ROOT/.git" ] && { _c_update_git_installation || return 1; } || { _c_update_tarball_installaton || return 1; }
 	_echo "Updating python packages in clamity venv" && _run $CLAMITY_ROOT/bin/clam-py update || return 1
-	if [ "$_opt_no_pkg_mgr" -eq 0 ]; then
-		[ -n "$CLAMITY_os_preferred_pkg_mgr" ] && { _ask "Update OS package manager '$CLAMITY_os_preferred_pkg_mgr' (Y/n) " y && { _run $CLAMITY_ROOT/bin/run-clamity os pkg selfupdate || return 1; }; }
-	fi
+	[ "$_opt_no_pkg_mgr" -eq 0 ] && { _run $CLAMITY_ROOT/bin/run-clamity os pkg selfupdate || return 1; }
 	_clear_clamity_module_cache
 }
 

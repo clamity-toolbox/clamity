@@ -161,7 +161,7 @@ function _sudo { # execute command using sudo
 }
 
 function _ask_to_run { # prompt y/n before executing a command
-	_is_true $CLAMITY_yes && {
+	{ _is_true $CLAMITY_yes || _is_true $_opt_yes; } && {
 		_run "$@"
 		return $?
 	}
@@ -299,7 +299,7 @@ function _ask { # prompt($1) for a y/n question and default($2). succes if 'yes'
 	local ans=""
 	[ -z "$def_ans" ] && def_ans=n
 	echo -n "$prompt"
-	_is_true $CLAMITY_yes && echo "auto-yes" && return 0
+	{ _is_true $CLAMITY_yes || _is_true $_opt_yes; } && echo "auto-yes" && return 0
 	read ans
 	[ -z "$ans" ] && ans=$def_ans
 	echo ",$ans," | egrep -qie ",(y|yes)," || return 1
