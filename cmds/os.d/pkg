@@ -202,14 +202,19 @@ function install_abstracted_pkg {
 # 	return $rc
 # }
 
-function install_pkg {
-	local cmd="$1"
-	[ -z "$cmd" ] && _error "package missing. don't know what to install." && return 1
+function confirm_pkg_mgr {
 	if [ -z "$(get_pkg_mgr)" ]; then
 		_warn "no preferred package manager selected"
 		select_macos_pkg_mgr
 		[ -z "$(get_pkg_mgr)" ] && return 1
 	fi
+	return 0
+}
+
+function install_pkg {
+	local cmd="$1"
+	[ -z "$cmd" ] && _error "package missing. don't know what to install." && return 1
+	confirm_pkg_mgr || return 1
 	_ask "Install $cmd (y/N)? " || return 1
 	is_abstracted_pkg "$cmd" && {
 		install_abstracted_pkg "$cmd"
@@ -247,7 +252,8 @@ function is_pkg_installed {
 }
 
 function update_pkg_mgr {
-	[ -z "$CLAMITY_os_preferred_pkg_mgr" ] && _error "preferred_pkg_mgr not set" && return 1
+	confirm_pkg_mgr || return 1
+	# [ -z "$CLAMITY_os_preferred_pkg_mgr" ] && _error "preferred_pkg_mgr not set" && return 1
 	case "$CLAMITY_os_preferred_pkg_mgr" in
 	port)
 		_run sudo port selfupdate || return 1
@@ -268,8 +274,6 @@ _usage "$customCmdDesc" "$cmd" "$subcmd" -command || exit 1
 # For sub-commands that require actions (sub-sub-commands)
 action="$1" && shift
 
-_trace "pkg.sh> before parser" "$@" - CLAMITY_os_preferred_pkg_mgr=$CLAMITY_os_preferred_pkg_mgr
-
 # Simple shell options parser - includes common options
 # ---------------------------
 # Options are export env vars prefixed with CLAMITY_. eg.
@@ -281,9 +285,7 @@ setup_clamity_options_parser \
 # boolOpttName  --opt2-name   1                 0 \
 # optWithValue  --val-opt     :                 ""       # : expects 1 arg
 
-_trace "pkg.sh> after prep" "$@" - CLAMITY_os_preferred_pkg_mgr=$CLAMITY_os_preferred_pkg_mgr
 parse_clamity_options "$@"
-_trace "pkg.sh> after parse" "$@" - CLAMITY_os_preferred_pkg_mgr=$CLAMITY_os_preferred_pkg_mgr
 
 eval set -- $PARGS_POSITIONAL # accomodates '--' for positional args
 # "$@" now represents positional args. CLAMITY_* vars set (and exported)
