@@ -21,7 +21,7 @@ __Abstract="
 "
 
 __Usage="
-	clamity os pkg abstracted | selfupdate
+	clamity os pkg abstracted | selfupdate | which
 	clamity os pkg install <pkg> [...]
 	clamity os pkg installed [--ask-to-install] <pkg> [<pkg> ...]
 "
@@ -53,6 +53,7 @@ customCmdDesc="
 \n\tinstall - install packages
 \n\tinstalled - check to see if a package is installed
 \n\tselfupdate - update package manager and packages
+\n\twhich - show the current package manager
 "
 # ------------------------------------------------
 
@@ -334,6 +335,10 @@ installed)
 selfupdate)
 	update_pkg_mgr "$@"
 	exit $?
+	;;
+which)
+	get_pkg_mgr
+	exit 0
 	;;
 *)
 	[ -n "$action" ] && _error "unknown $cmd sub-command ($action)"
