@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# desc: run with the clamity python environment (clam-py)
+# desc: use the clamity python environment (clam-py)
 
 source $CLAMITY_ROOT/lib/_.sh || return 1
 
