@@ -63,7 +63,7 @@ function _man_page { # print full man page with a pager (less)
 function _brief_usage { # print USAGE and ACTION sections (no pager)
 	local customCmdDesc="$1" cmd="$2" flags="$3"
 	echo -e "USAGE\n$__Usage"
-	[ -z "$flags" ] && flags="-action"
+	[ -z "$flags" ] && flags="-command"
 	__describe_sub_commands "$customCmdDesc" "$cmd" "$flags"
 	return 0
 }
