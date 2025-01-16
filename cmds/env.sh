@@ -105,6 +105,9 @@ _sub_command_is_external $cmd $subcmd && {
 	return $?
 }
 
+# _set_standard_options "$@"
+# echo "$@" | grep -q '\--no-pkg-mgr' && _opt_no_pkg_mgr=1 || _opt_no_pkg_mgr=0
+
 # Execute sub-commands
 case "$subcmd" in
 activate-python)

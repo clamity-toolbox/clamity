@@ -213,15 +213,13 @@ cmd=config
 _usage "$customCmdDesc" "$cmd" "$1" -command || return 1
 subcmd="$1" && shift
 
-# _cmds_needed cmd1 cmd2 || { _error "Command(s) not found. One of: cmd1 cmd2" && exit 1; }
-
 _sub_command_is_external $cmd $subcmd && {
 	_run_clamity_subcmd $cmd $subcmd "$@"
 	return $?
 }
 
 _set_standard_options "$@"
-# echo "$@" | grep -q '\--no-pkg-mgr' && _opt_no_pkg_mgr=1 || _opt_no_pkg_mgr=0
+# echo "$@" | grep -q '\--abc' && _opt_abc=1 || _opt_abc=0
 
 # Execute sub-commands
 rc=0
@@ -241,6 +239,6 @@ list)
 	;;
 esac
 
-# _clear_standard_options _opt_no_pkg_mgr
+# _clear_standard_options _opt_abc
 _clear_standard_options
 return 0

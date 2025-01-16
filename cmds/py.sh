@@ -82,7 +82,7 @@ _sub_command_is_external $cmd $subcmd && {
 }
 
 _set_standard_options "$@"
-# echo "$@" | grep -q '\--no-pkg-mgr' && _opt_no_pkg_mgr=1 || _opt_no_pkg_mgr=0
+# echo "$@" | grep -q '\--abc' && _opt_abc=1 || _opt_abc=0
 
 # Execute sub-commands
 rc=0
@@ -96,6 +96,6 @@ activate)
 	;;
 esac
 
-# _clear_standard_options _opt_no_pkg_mgr
+# _clear_standard_options _opt_abc
 _clear_standard_options
 return 0

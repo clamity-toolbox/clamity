@@ -5,7 +5,7 @@
 source $CLAMITY_ROOT/lib/_.sh || exit 1
 
 function common_usage {
-	_echo "usage: clamity tfm cicd { complete }"
+	_echo "usage: clamity tfm cicd { complete [-reconfigure] }"
 }
 
 function complete_run {
@@ -15,6 +15,7 @@ function complete_run {
 	for mod in $($TFM_REPO_ROOT/.clamity/config/module-sequence.sh); do
 		cd $TFM_REPO_ROOT/state-groups/$mod || return 1
 		_echo "Processing $(pwd)"
+		[ -f .terraform/terraform.tfstate -a \( $ReInit -eq 1 \) ] && { _run run-clamity tfm init -reconfigure || return 1; }
 		[ ! -f .terraform/terraform.tfstate ] && { _run run-clamity tfm init || return 1; }
 		_run run-clamity tfm plan || return 1
 	done
@@ -24,6 +25,9 @@ function complete_run {
 
 [ -z "$1" ] && common_usage && exit 1
 subcmd="$1" && shift
+
+# _set_standard_options "$@"
+echo "$@" | grep -q '\-reconfigure' && ReInit=1 || ReInit=0
 
 case "$subcmd" in
 complete)

@@ -33,19 +33,19 @@ __Abstract="
 
 # one or more lines detailing usage patterns (REQUIRED)
 __Usage="
-	clamity $cmd { mystate | apply | vars | smart-import | record-results } [options]
+	clamity $cmd { apply | vars | smart-import | record-results } [options]
 	clamity $cmd common { report | update | new-root <state-group> <module-name> }
 	clamity $cmd settings { show | [un]set aws-profile [profile] }
-	clamity $cmd cicd complete
+	clamity $cmd cicd complete [-reconfigure]
 	clamity $cmd { terraform-cmd-and-args }
 "
 
 # Don't include common options here
 __CommandOptions="
-	--none-yet
-		Need some
+	-reconfigure
+		Force -reconfigure with terraform init.
 
-MORE
+SUB-COMMANDS
 
 	cicd {complete}
 		An interface into various CI/CD pipeline processes. 'complete' will
@@ -69,8 +69,16 @@ MORE
 		terraform commands. This is if you don't want to manage it with
 		the AWS_PROFILE env variable.
 
+	smart-import
+		System for reading resource data and importing it into state. This requires
+		customizations specific to each terraform root module and is typically
+		not used unless terraforming an existing installation.
+
 	state-report
 		List resource deployments (state list) by state group.
+
+	vars
+		Display variables associated with terraform (TF_*, TFM_*, CLAMITY_TFM_*).
 "
 
 # For commands that have their own special env vars, inlude this section in
@@ -230,7 +238,6 @@ subcmd="$1" && shift
 # Establish this is a clamity compatible terraform repo
 TFM_REPO_ROOT="$(_git_repo_root)"
 tfmRepo=1
-
 [ -f "$TFM_REPO_ROOT/.clamity/config/settings.sh" ] && grep -q '^terraform_repo=1$' "$TFM_REPO_ROOT/.clamity/config/settings.sh" || tfmRepo=0
 [ -z "$TFM_REPO_ROOT" -o $tfmRepo -eq 0 ] && echo "this does not look like a clamity compatible terraform repo" && return 1
 
@@ -256,6 +263,9 @@ if [ -x "$CLAMITY_ROOT/cmds/tfm.d/$subcmd" ]; then
 	return $rc
 fi
 
+# _set_standard_options "$@"
+# echo "$@" | grep -q '\--abc' && _opt_abc=1 || _opt_abc=0
+
 rc=0
 case "$subcmd" in
 record-results)
@@ -272,5 +282,6 @@ state-report)
 	;;
 esac
 
+# _clear_standard_options _opt_abc
 _reset_aws_profile
 return $rc
