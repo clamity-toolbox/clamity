@@ -5,10 +5,6 @@
 source $CLAMITY_ROOT/lib/_.sh || return 1
 source $CLAMITY_ROOT/cmds/tfm.d/shared-funcs.sh || return 1
 
-cmd=tfm
-subcmd="$1"
-[ -n "$subcmd" ] && shift
-
 # ---------------------------------------------------------------------------
 # Define content for brief help and the manpage for this command. Comment out
 # any that does not apply. The formatting of the strings is important to
@@ -234,6 +230,7 @@ subcmd="$1" && shift
 # Establish this is a clamity compatible terraform repo
 TFM_REPO_ROOT="$(_git_repo_root)"
 tfmRepo=1
+
 [ -f "$TFM_REPO_ROOT/.clamity/config/settings.sh" ] && grep -q '^terraform_repo=1$' "$TFM_REPO_ROOT/.clamity/config/settings.sh" || tfmRepo=0
 [ -z "$TFM_REPO_ROOT" -o $tfmRepo -eq 0 ] && echo "this does not look like a clamity compatible terraform repo" && return 1
 

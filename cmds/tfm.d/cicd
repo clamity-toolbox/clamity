@@ -12,9 +12,9 @@ function complete_run {
 	local mod
 	[ ! -x $TFM_REPO_ROOT/.clamity/config/module-sequence.sh ] && echo "$TFM_REPO_ROOT/.clamity/config/module-sequence.sh not found or executable" && return 1
 	cd $TFM_REPO_ROOT || return 1
-	for mod in `$TFM_REPO_ROOT/.clamity/config/module-sequence.sh`; do
+	for mod in $($TFM_REPO_ROOT/.clamity/config/module-sequence.sh); do
 		cd $TFM_REPO_ROOT/state-groups/$mod || return 1
-		_echo "Processing `pwd`"
+		_echo "Processing $(pwd)"
 		[ ! -f .terraform/terraform.tfstate ] && { _run run-clamity tfm init || return 1; }
 		_run run-clamity tfm plan || return 1
 	done
@@ -26,7 +26,10 @@ function complete_run {
 subcmd="$1" && shift
 
 case "$subcmd" in
-	complete) complete_run; exit $?;;
-	*) common_usage && exit 1;;
+complete)
+	complete_run
+	exit $?
+	;;
+*) common_usage && exit 1 ;;
 esac
 exit 0
