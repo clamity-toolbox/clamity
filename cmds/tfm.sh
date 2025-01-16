@@ -234,8 +234,8 @@ tfmRepo=1
 [ -f "$TFM_REPO_ROOT/.clamity/config/settings.sh" ] && grep -q '^terraform_repo=1$' "$TFM_REPO_ROOT/.clamity/config/settings.sh" || tfmRepo=0
 [ -z "$TFM_REPO_ROOT" -o $tfmRepo -eq 0 ] && echo "this does not look like a clamity compatible terraform repo" && return 1
 
-_cmds_needed terraform script || {
-	_error "one or more commands not found: terraform, script"
+_cmds_needed terraform script jq yq || {
+	_error "one or more commands not found: terraform, script, jq, yq"
 	return 1
 }
 

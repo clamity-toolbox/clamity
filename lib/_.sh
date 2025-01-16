@@ -392,7 +392,6 @@ function _cmd_exists {
 
 function _cmds_needed { # verify command dependency
 	_cmd_exists "$@" && return 0
-	_warn "aws command not found"
 	_run $CLAMITY_ROOT/bin/run-clamity os pkg installed --ask-to-install "$@"
 }
 
