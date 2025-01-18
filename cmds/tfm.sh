@@ -21,9 +21,9 @@ __Abstract="
 	Use the 'clamity tfm' command as if it were an alias for the 'terraform'
 	command. It intercepts custom sub-commands (extensions), passing the rest
 	through to 'terraform' directly so 'clamity tfm state list' is identical
-	to 'terraform state list'. Some terraform sub-commands are intercepted and
+	to 'terraform state list'. Some terraform commands are intercepted and
 	the command line passed to 'terraform' modified to accomodate global settings
-	for things like state management. For example, 'tfm init' will add the
+	for things like state management. For example, 'clamity tfm init' will add the
 	'-backend-config=xxx' arg for the appropriate config before passing through
 	to 'terraform init'.
 
