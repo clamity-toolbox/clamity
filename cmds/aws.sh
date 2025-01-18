@@ -25,8 +25,8 @@ customCmdDesc="
 "
 
 function _caws_login {
-	[ -z "$CLAMITY_aws_sso_session$1" ] && echo "Default AWS session not set. Specify one or set a default with 'clamity config set default aws_sso_session <session>'" && return 1
-	[ -n "$1" ] && local session="$1" || local session="$CLAMITY_aws_sso_session"
+	[ -z "$CLAMITY_aws_default_sso_session$1" ] && echo "Default AWS session not set. Specify one or set a default with 'clamity config set default aws_default_sso_session <session-name>'" && return 1
+	[ -n "$1" ] && local session="$1" || local session="$CLAMITY_aws_default_sso_session"
 	_run aws sso login --sso-session $session
 }
 

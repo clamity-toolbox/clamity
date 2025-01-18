@@ -16,7 +16,7 @@ function __c_opts_common_list {
 }
 
 function __c_opts_other_list {
-	echo "disable_module_cache  os_preferred_pkg_mgr  aws_sso_session"
+	echo "disable_module_cache  os_preferred_pkg_mgr  aws_default_sso_session"
 }
 
 # other opts that cannot be overridden
