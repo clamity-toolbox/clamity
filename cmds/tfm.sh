@@ -33,7 +33,8 @@ __Abstract="
 
 # one or more lines detailing usage patterns (REQUIRED)
 __Usage="
-	clamity $cmd { apply | vars | smart-import | record-results } [options]
+	clamity $cmd { vars | smart-import | record-results } [-reconfigure] [tfm-options]
+	clamity $cmd apply [--no-commit] [tfm-options]
 	clamity $cmd common { report | update | new-root <state-group> <module-name> }
 	clamity $cmd settings { show | [un]set aws-profile [profile] }
 	clamity $cmd cicd complete [-reconfigure]
@@ -44,6 +45,9 @@ __Usage="
 __CommandOptions="
 	-reconfigure
 		Force -reconfigure with terraform init.
+
+	--no-commit
+		When running 'apply', don't commit and push changes to the repo.
 
 SUB-COMMANDS
 
@@ -231,6 +235,31 @@ function _tfm_state_report {
 	done
 }
 
+function _tfm_check_repo_before_apply {
+	[ $(git status -s | awk '{print $1}' | grep '\?' | wc -l) -gt 0 ] && {
+		_warn "untracked files in repo, commit, add or remove them before applying"
+		git status -s | grep '\?'
+		return 1
+	}
+	return 0
+}
+
+function _tfm_commit_and_push {
+	[ $(git diff --name-only | wc -l) -eq 0 ] && return 0
+	_echo "--------------------------------------------------------"
+	_echo "Committing updated output and audit files post-apply"
+	_echo "--------------------------------------------------------"
+	_run git diff --name-only
+	_echo
+	_ask "Commit and push origin (Y/n)? " y && {
+		local msg defaultMsg="post-apply audit and output update"
+		echo -n "Commit message ($defaultMsg): "
+		read msg
+		[ -z "$msg" ] && msg="$defaultMsg"
+		_run git commit -am "$msg" && _run git push origin
+	}
+}
+
 cmd=tfm
 _usage "$customCmdDesc" "$cmd" "$1" -command || return 1
 subcmd="$1" && shift
@@ -251,9 +280,20 @@ _set_aws_profile || return 1
 if [ -x "$CLAMITY_ROOT/cmds/tfm.d/$subcmd" ]; then
 	export TFM_REPO_ROOT="$TFM_REPO_ROOT"
 	if [ "$(_tfm_prop audit_applies)" -a $subcmd = apply ]; then
-		echo "AUDIT APPLY: $CLAMITY_ROOT/cmds/tfm.d/$subcmd" "$@" >AUDIT.log
-		script -a AUDIT.log "$CLAMITY_ROOT/cmds/tfm.d/$subcmd" "$@"
+		_tfm_check_repo_before_apply || return 1
+
+		local _opt_commit=1 argList="" var
+		echo "$@" | grep -q '\--no-commit' && _opt_commit=0
+
+		for var in "$@"; do [ "$var" != "--no-commit" ] && argList="$argList $var"; done
+
+		echo "AUDIT APPLY: $CLAMITY_ROOT/cmds/tfm.d/$subcmd" $argList >AUDIT.log
+		script -a AUDIT.log "$CLAMITY_ROOT/cmds/tfm.d/$subcmd" $argList
 		rc=$?
+
+		echo "Script command returned $rc" | tee -a AUDIT.log
+		[ $rc -ne 0 ] && _error "terraform apply failed" && return 1
+		_tfm_commit_and_push || rc=1
 	else
 		"$CLAMITY_ROOT/cmds/tfm.d/$subcmd" "$@"
 		rc=$?
@@ -284,4 +324,5 @@ esac
 
 # _clear_standard_options _opt_abc
 _reset_aws_profile
+[ $rc -ne 0 ] && _warn "command returned status 1"
 return $rc

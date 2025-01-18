@@ -3,19 +3,17 @@ function _tfm_prop {
 }
 
 function _tfm_record_results {
+	local rc=0
 	if [ "$(_tfm_prop record_output)" ]; then
 		_echo "Creating OUTPUT.json"
 		_vecho "_run terraform output -json | jq .props.value >OUTPUT.json"
-		terraform output -json | jq .props.value >OUTPUT.json
+		terraform output -json | jq .props.value >OUTPUT.json || rc=1
 	fi
 	if [ "$$(_tfm_prop record_state)" ]; then
 		_echo "Creating STATE.md"
 		_vecho "terraform state list >STATE.md"
 		echo -e "# Terraform State List - $(pwd | rev | cut -f1-2 -d/ | rev)\n" >STATE.md
-		terraform state list >>STATE.md
+		terraform state list >>STATE.md || rc=1
 	fi
-	[ $(git diff --name-only | wc -l) -eq 0 ] && return 0
-	_echo "Committing updated output and audit files post-apply"
-	_run git diff --name-only
-	_ask "Commit and push origin (Y/n)? " y && _run git commit -am "post-apply output and audit update" && _run git push origin
+	return $rc
 }
