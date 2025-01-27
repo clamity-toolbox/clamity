@@ -21,7 +21,7 @@ from clamity import aws
 
 Usage = """
     clamity secrets { list | help }
-    clamity secrets add --name secret/path/and/name --desc "useful desc" --value "supersecret"
+    clamity secrets write --name secret/path/and/name --desc "useful desc" --value "supersecret"
     clamity secrets { read | details | delete } --name secret/path/and/name
     clamity secrets update --name secret/path/and/name [--desc "updated desc"] [--value "newsecret"]
 """
@@ -29,13 +29,13 @@ Usage = """
 ActionsAndSupplemental = """
 actions:
 
-    add      Add new secrets to the secrets store
     delete   Delete secrets from the secrets store
     details  Display the AWS API response (in JSON) for secret details
     help     Full help
     list     List the secrets
     read     Return the value of a secret
     update   Update a secret's description or value
+    write    Add new secrets to the secrets store
 
 standard storage conventions:
 
@@ -82,7 +82,9 @@ def secrets_schema():
 
 options = CmdOptions().parser(description=__doc__, usage=Usage, epilog=ActionsAndSupplemental)
 options.add_args(["common", "aws"])
-options.add_argument("action", choices=["list", "delete", "update", "add", "read", "details", "help"], help="action to take")
+options.add_argument(
+    "action", choices=["list", "delete", "update", "write", "read", "details", "help"], help="action to take"
+)
 options.add_argument("--desc", type=str, help="useful description of the secret (possibly a URL)")
 options.add_argument("--value", type=str, help="the secret's value")
 options.add_argument("--name", type=str, help="secret's path and name (secret store key)")
@@ -97,7 +99,7 @@ match opts.action:
     case "list":
         aws.resources.secrets().fetch().print()
 
-    case "add":
+    case "write":
         if not opts.desc or not opts.value or not opts.name:
             print("--name, --value and --desc are required when adding a secret", file=sys.stderr)
             exit(1)

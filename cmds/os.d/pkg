@@ -230,8 +230,8 @@ function install_brew_pkg {
 function install_port_pkg {
 	local pkg="$1"
 	case "$pkg" in
-	supabase-cli)
-		_error "supabase CLI not available for macports" && return 1
+	supabase-cli | neonctl)
+		_error "$pkg not available for macports" && return 1
 		;;
 	*)
 		_run sudo port install $pkg || return 1

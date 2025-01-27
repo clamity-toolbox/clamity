@@ -51,6 +51,8 @@ class CmdOptions(metaclass=Singleton):
             choices=["json", "text", "csv"],
             help="json, text (default) or csv",
         )
+        self.add_argument("--no-truncate", action="store_true", default=False, help="don't truncate column widths")
+        self.add_argument("--no-header", action="store_true", default=False, help="don't display column headers")
 
     def add_aws_args(self) -> None:
         self.add_argument("--aws-region", type=str, help="AWS region (eg. us-east-1)")
@@ -76,8 +78,9 @@ class CmdOptions(metaclass=Singleton):
         if "help" in kwargs and getattr(self.args, kwargs["help"]) == "help":
             self.print_help()
             exit(1)
-        self.args.truncate = True
-        self.args.headers = True
+        self.args.truncate = not self.args.no_truncate
+
+        self.args.header = not self.args.no_header
         return self.args
 
     # def add_custom_argument(self, name, **kwargs):

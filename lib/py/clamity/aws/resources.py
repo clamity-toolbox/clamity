@@ -330,8 +330,8 @@ class _resources(ABC):
 
     def print(self, **kwargs) -> None:
         output = kwargs["output"] if "output" in kwargs else self.options.args.output_format
-        truncate = kwargs["truncate"] if "truncate" in kwargs else True
-        header = kwargs["header"] if "header" in kwargs else True
+        truncate = kwargs["truncate"] if "truncate" in kwargs else self.options.args.truncate
+        header = kwargs["header"] if "header" in kwargs else self.options.args.header
         if not len(self._resourcesList):
             print("no data")
             return
@@ -814,7 +814,7 @@ class secretType(Enum):
 class secret(_resource):
     resourceType = resourceType.SECRET
     _displayFieldOrder = ["name", "uniq", "last_changed", "desc"]
-    _displayFieldProps = {"name": {"width": 50}, "uniq": {"width": 6}, "desc": {"width": 50}, "last_changed": {"width": 23}}
+    _displayFieldProps = {"name": {"width": 65}, "uniq": {"width": 6}, "desc": {"width": 65}, "last_changed": {"width": 23}}
     _props = {"name": str, "desc": str, "value": str, "type": secretType}
 
     @property
