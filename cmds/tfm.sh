@@ -69,9 +69,9 @@ SUB-COMMANDS
 		Saves state listing to STATE.md and output to OUTPUT.json.
 
 	settings
-		You can set an aws_profile locally which will be used when running
-		terraform commands. This is if you don't want to manage it with
-		the AWS_PROFILE env variable.
+		You can set an aws_profile by state_group to use locally which when running
+		terraform commands. This is if you don't want to manage it with the
+		AWS_PROFILE env variable.
 
 	smart-import
 		System for reading resource data and importing it into state. This requires
@@ -171,7 +171,7 @@ function _set_unset {
 		[ -f /tmp/$where-settings.sh.$$ ] && mv /tmp/$where-settings.sh.$$ $TFM_REPO_ROOT/.clamity/$where/settings.sh && return 0
 		return 1
 	elif [ "$action" = set -a -n "$val" ]; then
-		echo "$prop=$val" >>/tmp/$where-settings.sh && mv /tmp/$where-settings.sh.$$ $TFM_REPO_ROOT/.clamity/$where/settings.sh && return 0
+		echo "$prop=$val" >>/tmp/$where-settings.sh.$$ && mv /tmp/$where-settings.sh.$$ $TFM_REPO_ROOT/.clamity/$where/settings.sh && return 0
 		return 1
 	else
 		_warn "$usage" && return 1
@@ -179,24 +179,29 @@ function _set_unset {
 }
 
 function _tfm_set_props {
-	local usage="usage: clamity tfm settings { show | [un]set { aws-profile } [profile] }"
+	local usage="usage: clamity tfm settings { show | [un]set { aws_profile <state-group> [<profile>] | terraform_repo | record_state | record_output | audit_applies } }"
 	local _tfm_local_vars="aws_profile"
 	local _tfm_config_vars="terraform_repo|record_state|record_output|audit_applies"
-
 	[ -z "$1" ] && _warn "$usage" && return 1
-	case "$1" in
+
+	local sub_cmd="$1" prop="$2" state_group="$3" prof="$4"
+	[ "$prop" = "aws_profile" ] && local sg=":$state_group" || local sg=""
+	[ "$prop" != "aws_profile" ] && prof=1
+
+	case "$sub_cmd" in
 	show) {
 		cat $TFM_REPO_ROOT/.clamity/config/settings.sh $TFM_REPO_ROOT/.clamity/local/settings.sh 2>/dev/null
 		return 0
 	} ;;
 	set | unset) {
-		[ \( "$1" = "set" -a -z "$3" \) -o \( "$1" = "unset" -a -n "$3" \) ] && _warn "$usage" && return 1
+		[ "$prop" = "aws_profile" ] && [ \( "$sub_cmd" = "set" -a -z "$prof" \) -o \( "$sub_cmd" = "unset" -a -n "$stage_group" \) ] && _warn "$usage" && return 1
+		[ "$prop" != "aws_profile" ] && [ -n "$state_group" ] && _warn "$usage" && return 1
 		echo $prop | egrep -qe "^($_tfm_local_vars)$" && {
-			_set_unset "set" "local" "$prop" "$val" && _tfm_set_props show
+			_set_unset "$sub_cmd" "local" "$prop$sg" "$prof" && _tfm_set_props show
 			return $?
 		}
 		echo $prop | egrep -qe "^($_tfm_config_vars)$" && {
-			_set_unset "unset" "config" "$prop" "$val" && _tfm_set_props show
+			_set_unset "$1" "config" "$prop$sg" "$prof" && _tfm_set_props show
 			return $?
 		}
 	} ;;
@@ -208,7 +213,8 @@ function _tfm_set_props {
 function _set_aws_profile {
 	local _awsprof=""
 	__aws_prof_exists_before="$AWS_PROFILE" # global
-	[ -f $TFM_REPO_ROOT/.clamity/local/settings.sh ] && _awsprof=$(grep '^aws_profile=' $TFM_REPO_ROOT/.clamity/local/settings.sh | cut -f2 -d=)
+	local state_group=$(pwd | rev | cut -f1-2 -d/ | rev | cut -f1 -d/)
+	[ -f $TFM_REPO_ROOT/.clamity/local/settings.sh ] && _awsprof=$(grep "^aws_profile:$state_group=" $TFM_REPO_ROOT/.clamity/local/settings.sh | cut -f2 -d=)
 	[ -z "$AWS_PROFILE" -a -z "$_awsprof" ] && return 0                      # profile is not my problem
 	[ -n "$AWS_PROFILE" -a -z "$_awsprof" ] && return 0                      # profile set externally
 	[ "$AWS_PROFILE" = "$_awsprof" ] && return 0                             # no conflict
@@ -288,6 +294,9 @@ if [ -x "$CLAMITY_ROOT/cmds/tfm.d/$subcmd" ]; then
 		for var in "$@"; do [ "$var" != "--no-commit" ] && argList="$argList $var"; done
 
 		echo "AUDIT APPLY: $CLAMITY_ROOT/cmds/tfm.d/$subcmd" $argList >AUDIT.log
+
+		_run aws sts get-caller-identity || return 1
+
 		script -a AUDIT.log "$CLAMITY_ROOT/cmds/tfm.d/$subcmd" $argList
 		rc=$?
 
