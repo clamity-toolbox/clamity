@@ -130,6 +130,8 @@ module \"$mod\" {
   debug       = var.debug
 }
 " >$rootModDir/main.tf
+
+	touch $rootModDir/STATE.md $rootModDir/OUTPUT.json $rootModDir/AUDIT.log || return 1
 }
 
 [ -z "$1" ] && common_usage && exit 1

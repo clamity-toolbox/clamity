@@ -212,19 +212,21 @@ function _tfm_set_props {
 
 function _set_aws_profile {
 	local _awsprof=""
-	__aws_prof_exists_before="$AWS_PROFILE" # global
+	__aws_prof_exists_before="$AWS_PROFILE" # THIS IS A GLOBAL!!!
+
 	local state_group=$(pwd | rev | cut -f1-2 -d/ | rev | cut -f1 -d/)
 	[ -f $TFM_REPO_ROOT/.clamity/local/settings.sh ] && _awsprof=$(grep "^aws_profile:$state_group=" $TFM_REPO_ROOT/.clamity/local/settings.sh | cut -f2 -d=)
 	[ -z "$AWS_PROFILE" -a -z "$_awsprof" ] && return 0                      # profile is not my problem
 	[ -n "$AWS_PROFILE" -a -z "$_awsprof" ] && return 0                      # profile set externally
 	[ "$AWS_PROFILE" = "$_awsprof" ] && return 0                             # no conflict
 	[ -z "$AWS_PROFILE" ] && _run export AWS_PROFILE="$_awsprof" && return 0 # set profile for the run
-	_warn "AWS_PROFILE($AWS_PROFILE) conflicts with local setting of $_awsprof"
-	return 1 # conflict
+	# _warn "AWS_PROFILE($AWS_PROFILE) conflicts with local setting of $_awsprof" && return 1
+	_run export AWS_PROFILE="$_awsprof" # overwrite profile for the run
+	return 0
 }
 
 function _reset_aws_profile {
-	[ -n "$__aws_prof_exists_before" ] && _vecho "export AWS_PROFILE=$__aws_prof_exists_before" && export AWS_PROFILE="$__aws_prof_exists_before" || unset AWS_PROFILE
+	[ -n "$__aws_prof_exists_before" ] && _vecho "restoring AWS_PROFILE=$__aws_prof_exists_before" && export AWS_PROFILE="$__aws_prof_exists_before" || unset AWS_PROFILE
 	return 0
 }
 

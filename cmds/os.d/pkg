@@ -217,6 +217,9 @@ function install_abstracted_pkg {
 function install_brew_pkg {
 	local pkg="$1"
 	case "$pkg" in
+	terraform)
+		_run brew install hashicorp/tap/terraform || return 1
+		;;
 	supabase-cli)
 		_run brew install supabase/tap/supabase || return 1
 		;;
