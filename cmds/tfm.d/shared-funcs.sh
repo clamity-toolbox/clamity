@@ -13,7 +13,9 @@ function _tfm_record_results {
 		_echo "Creating STATE.md"
 		_vecho "terraform state list >STATE.md"
 		echo -e "# Terraform State List - $(pwd | rev | cut -f1-2 -d/ | rev)\n" >STATE.md
-		terraform state list >>STATE.md || rc=1
+		echo "\`\`\`" >>STATE.md
+		terraform state list | sort >>STATE.md || rc=1
+		echo "\`\`\`" >>STATE.md
 	fi
 	return $rc
 }
