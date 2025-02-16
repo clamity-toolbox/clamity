@@ -35,7 +35,7 @@ __Abstract="
 __Usage="
 	clamity $cmd { vars | smart-import | record-results } [-reconfigure] [tfm-options]
 	clamity $cmd apply [--no-commit] [tfm-options]
-	clamity $cmd common { report | update | new-root <state-group> <module-name> }
+	clamity $cmd common { report | update [mine] | new-root <state-group> <module-name> }
 	clamity $cmd settings { show | [un]set aws-profile [profile] }
 	clamity $cmd cicd complete [-reconfigure]
 	clamity $cmd { terraform-cmd-and-args }
