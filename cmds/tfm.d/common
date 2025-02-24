@@ -66,8 +66,9 @@ function new_state_group {
 	local res=""
 	if [ ! -f "$stateDir/config.tfbackend" ]; then
 		_echo "$stateDir/config.tfbackend needs to be created."
+		[ -x "$TFM_REPO_ROOT/.clamity/config/state-resource-prefix.sh" ] && eval $(cd $TFM_REPO_ROOT && ./.clamity/config/state-resource-prefix.sh) && res=$prefix && reg=$region
 		while [ -z "$res" -o -z "$reg" ]; do
-			_echo -n "resource prefix (eg. pkt-5-123456788): " && read res
+			_echo -n "state resource prefix (eg. pkt-5-123456788): " && read res
 			_echo -n "AWS state region: " && read reg
 		done
 		echo -e "\nbucket = \"$res-tfstate\"\nregion = \"$reg\"\ndynamodb_table = \"$res-tflocks\"\nencrypt = true" >$stateDir/config.tfbackend

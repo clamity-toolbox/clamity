@@ -259,13 +259,19 @@ function _tfm_commit_and_push {
 	_echo "--------------------------------------------------------"
 	_run git diff --name-only
 	_echo
-	_ask "Commit and push origin (Y/n)? " y && {
-		local msg defaultMsg="post-apply audit and output update"
-		echo -n "Commit message ($defaultMsg): "
+	[ "$TFM_POST_COMMIT" = "false" ] && return 0
+	local c_msg="and push origin "
+	[ "$TFM_POST_COMMIT" = "commit-only" ] && c_msg=""
+	_ask "Commit $c_msg(Y/n)? " y && {
+		local msg defaultMsg="audit, status and output update"
+		echo -n "Commit message -  post-apply: "
 		read msg
 		[ -z "$msg" ] && msg="$defaultMsg"
-		_run git commit -am "$msg" && _run git push origin
+		_run git commit -am "post-apply: $msg" || return 1
+		[ -z "$c_msg" ] && return 0
+		_run git push origin || return 1
 	}
+	return 0
 }
 
 cmd=tfm

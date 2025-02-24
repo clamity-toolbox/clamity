@@ -52,6 +52,7 @@ login)
 	_caws_login "$@" || rc=1
 	;;
 whoami)
+	echo "AWS_PROFILE=$AWS_PROFILE"
 	aws sts get-caller-identity || rc=1
 	;;
 profile)
