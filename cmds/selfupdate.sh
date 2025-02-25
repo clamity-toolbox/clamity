@@ -16,6 +16,12 @@ source $CLAMITY_ROOT/lib/_.sh || return 1
 __Abstract="
 	Update the clamity software, package managers and packages and all
 	matter of software under clamity's umbrella.
+
+	The full monty includes:
+	 - backup clamity data and software ($CLAMITY_ROOT/, ~/.clamity/)
+	 - update clamity software (git pull)
+	 - update clamity python env
+	 - update selected package manager (apt, brew, macports, ...) pkgs
 "
 
 # one or more lines detailing usage patterns (REQUIRED)
@@ -25,14 +31,9 @@ __Usage="
 "
 
 # Don't include common options here
-__CommandOptions=""
-# __CommandOptions="
-# 	--opt-a
-# 		No additional arg. boolean. Use _is_true() and _is_false() funcs
-# 		to evaluate.
-#
-# 	--opt-name <name>
-# 		the name of the thing you specifed using --opt-name.
+__CommandOptions="
+# 	--no-pkg-mgr
+# 		Update the clamity installation without including the package manager.
 # "
 
 # For commands that have their own special env vars, inlude this section in
@@ -53,8 +54,11 @@ __CustomSections="SUPPORTED SHELLS
 
 # Showing examples for comman tasks proves to be very useful in man pages.
 __Examples="
-	Update clamity
+	Update clamity interactively
 		clamity selfupdate
+
+	Update clamity non-interactively without the including the package manager
+		clamity selfupdate --no-pkg-mgr
 "
 # ---------------------------------------------------------------------------
 
@@ -117,7 +121,7 @@ function _c_update_clamity {
 	_ask "Backup clamity before we begin (Y/n)? " y && { _c_backup_clamity || return 1; }
 	[ -d "$CLAMITY_ROOT/.git" ] && { _c_update_git_installation || return 1; } || { _c_update_tarball_installaton || return 1; }
 	_echo "Updating python packages in clamity venv" && _run $CLAMITY_ROOT/bin/clam-py update || return 1
-	[ "$_opt_no_pkg_mgr" -eq 0 ] && { _run $CLAMITY_ROOT/bin/run-clamity os pkg selfupdate || return 1; }
+	[ "$_opt_no_pkg_mgr" -eq 0 ] && _ask "Update OS packages (Y/n)? " y && { _run $CLAMITY_ROOT/bin/run-clamity os pkg selfupdate || return 1; }
 	_clear_clamity_module_cache
 }
 

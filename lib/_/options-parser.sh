@@ -40,11 +40,11 @@ function _clear_standard_options {
 }
 
 function _set_standard_options {
-	{ _is_true $CLAMITY_yes || echo "$@" | egrep -qe '\--yes| -y'; } && _opt_yes=1 || _opt_yes=0
-	{ _is_true $CLAMITY_verbose || echo "$@" | egrep -qe '\--verbose| -v'; } && _opt_verbose=1 || _opt_verbose=0
-	{ _is_true $CLAMITY_debug || echo "$@" | egrep -qe '\--debug| -d'; } && _opt_debug=1 || _opt_debug=0
-	{ _is_true $CLAMITY_dryrun || echo "$@" | egrep -qe '\--dryrun| -n'; } && _opt_dryrun=1 || _opt_dryrun=0
-	{ _is_true $CLAMITY_quiet || echo "$@" | egrep -qe '\--quiet| -q'; } && _opt_quiet=1 || _opt_quiet=0
+	{ _is_true $CLAMITY_yes || echo " ""$@" | egrep -qe '\--yes| -y'; } && _opt_yes=1 || _opt_yes=0
+	{ _is_true $CLAMITY_verbose || echo " ""$@" | egrep -qe '\--verbose| -v'; } && _opt_verbose=1 || _opt_verbose=0
+	{ _is_true $CLAMITY_debug || echo " ""$@" | egrep -qe '\--debug| -d'; } && _opt_debug=1 || _opt_debug=0
+	{ _is_true $CLAMITY_dryrun || echo " ""$@" | egrep -qe '\--dryrun| -n'; } && _opt_dryrun=1 || _opt_dryrun=0
+	{ _is_true $CLAMITY_quiet || echo " ""$@" | egrep -qe '\--quiet| -q'; } && _opt_quiet=1 || _opt_quiet=0
 }
 
 function __desc_of { # pull the description of a command from the comment
