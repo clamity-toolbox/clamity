@@ -26,8 +26,8 @@ function install_core_modules {
 }
 
 function update_pip_pkgs {
-	_run "$CLAMITY_HOME/pyvenv/bin/pip3" update installed || return 1
-	_run "$CLAMITY_HOME/pyvenv/bin/pip3" update pip || return 1
+	_vecho "$CLAMITY_HOME/pyvenv/bin/pip3 install --upgrade \`$CLAMITY_HOME/pyvenv/bin/pip3 list | egrep -ve '^(Package|----)' | awk '{print \$1}'\`"
+	"$CLAMITY_HOME/pyvenv/bin/pip3" install --upgrade $("$CLAMITY_HOME/pyvenv/bin/pip3" list | egrep -ve "^(Package|----)" | awk '{print $1}')
 }
 
 function add_missing_python_pkgs {
@@ -46,7 +46,7 @@ function add_missing_python_pkgs {
 [ -z "$1" ] && usage && exit 1
 
 # update python packages and quit
-[ "$1" == 'update' ] && [ ! -d "$CLAMITY_HOME/pyvenv/bin/python3" ] && exit 0 # py not installed, nothing to do
+[ "$1" == 'update' ] && [ ! -e "$CLAMITY_HOME/pyvenv/bin/python3" ] && exit 0 # py not installed, nothing to do
 [ "$1" == 'update' ] && {
 	update_pip_pkgs && add_missing_python_pkgs
 	exit $?
