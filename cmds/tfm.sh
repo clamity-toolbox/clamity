@@ -91,9 +91,10 @@ __EnvironmentVariables="
 	TFM_REPO_ROOT
 		Full path to and including this repo's root.
 
-	TFM_ROOT_MODS
-		Relative path from TFM_REPO_ROOT to the top of the root module
-		tree (default = 'roots').
+	TFM_POST_COMMIT
+		Controls execution of post-apply commit and push. Valid values are
+		'commit-only' (won't push), 'none' (won't commit or push), or null
+		(default) which will commit and push.
 "
 
 # Optional pre-formatted section inserted towards end before Examples
@@ -111,20 +112,22 @@ SUPPORTED SHELLS
 	bash, zsh
 
 FILES
+    TFM_REPO_ROOT/.clamity/config/settings.sh
+		Configuration settings for the repo. This file should be committed.
 
-	TFM_REPO_ROOT/.tfm.local.sh
-		Local variable declarations (not to be committed) sourced in when
-		running all 'tfm' commands. This is git ignored.
+    TFM_REPO_ROOT/.clamity/config/module-sequence.sh
+		Script to provides the sequence in which root modules should be applied
+		allowing for intra-module dependencies. This should be executed from
+		within TFM_REPO_ROOT. This file should be committed.
 
-	./.tfm.sh
-		Root-specific variable declarations. To be committed.
+    TFM_REPO_ROOT/.clamity/config/state-resource-prefix.sh
+		Provides the resource prefix and region required for identifying backend
+		state resources when creating new root modules. This should be executed
+		from within TFM_REPO_ROOT. This file should be committed.
 
-	TFM_REPO_ROOT/TFM_ROOT_MODS/<top-dir>/.tfm.sh
-		<top-dir> (eg. dev or prod)-specific variables such as account,
-		user list, etc.. used to support imports and other conveniences.
-		This file needs to be kept in sync with the values in the
-		<top-dir>/common/common-variables.tf file.
-		Optional. Should be committed.
+	TFM_REPO_ROOT/.clamity/local/settings.sh
+		Configuration settings for the repo which should _not_ be committed.
+		Examples include your desired AWS_PROFILE values by state group.
 "
 
 # Showing examples for comman tasks proves to be very useful in man pages.
@@ -259,7 +262,7 @@ function _tfm_commit_and_push {
 	_echo "--------------------------------------------------------"
 	_run git diff --name-only
 	_echo
-	[ "$TFM_POST_COMMIT" = "false" ] && return 0
+	[ "$TFM_POST_COMMIT" = "none" ] && return 0
 	local c_msg="and push origin "
 	[ "$TFM_POST_COMMIT" = "commit-only" ] && c_msg=""
 	_ask "Commit $c_msg(Y/n)? " y && {
