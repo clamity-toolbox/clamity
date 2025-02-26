@@ -57,11 +57,12 @@ customCmdDesc="
 "
 # ------------------------------------------------
 
+# returns 'brew', 'port', 'mismatch' or ''
 function get_pkg_mgr {
 	[ "$CLAMITY_os_preferred_pkg_mgr" == brew ] && which brew >/dev/null 2>&1 && echo brew && return
-	[ "$CLAMITY_os_preferred_pkg_mgr" == brew ] && _warn "your preferred pkg mgr is homebrew but 'brew' isn't in your search path" && return
+	[ "$CLAMITY_os_preferred_pkg_mgr" == brew ] && _warn "your preferred pkg mgr is homebrew but 'brew' isn't in your search path" && echo mismatch && return
 	[ "$CLAMITY_os_preferred_pkg_mgr" == port ] && which port >/dev/null 2>&1 && echo port && return
-	[ "$CLAMITY_os_preferred_pkg_mgr" == port ] && _warn "your preferred pkg mgr is macports but 'port' isn't in your search path" && return
+	[ "$CLAMITY_os_preferred_pkg_mgr" == port ] && _warn "your preferred pkg mgr is macports but 'port' isn't in your search path" && echo mismatch && return
 	[ -n "$CLAMITY_os_preferred_pkg_mgr" ] && _warn "an unsupported package manager has been set ($CLAMITY_os_preferred_pkg_mgr)"
 }
 
@@ -81,10 +82,12 @@ function select_macos_pkg_mgr {
 }
 
 function confirm_pkg_mgr {
-	if [ -z "$(get_pkg_mgr)" ]; then
-		_warn "no preferred package manager selected"
+	local pm="$(get_pkg_mgr)"
+	if [ -z "$pm" -o "$pm" == mismatch ]; then
+		[ -z "$pm" ] && _warn "no preferred package manager selected"
 		select_macos_pkg_mgr
-		[ -z "$(get_pkg_mgr)" ] && return 1
+		pm="$(get_pkg_mgr)"
+		[ -z "$pm" -o "$pm" == mismatch ] && return 1
 	fi
 	return 0
 }
