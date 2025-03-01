@@ -16,25 +16,39 @@ source $CLAMITY_ROOT/lib/_.sh || return 1
 __Abstract="
 	Update the clamity software, package managers and packages and all
 	matter of software under clamity's umbrella.
-
-	The full monty includes:
-	 - backup clamity data and software ($CLAMITY_ROOT/, ~/.clamity/)
-	 - update clamity software (git pull)
-	 - update clamity python env
-	 - update selected package manager (apt, brew, macports, ...) pkgs
 "
 
 # one or more lines detailing usage patterns (REQUIRED)
 __Usage="
 	clamity selfupdate help
-	clamity selfupdate [update] [ -y ] [ --no-pkg-mgr ]
+	clamity selfupdate [-y] [update] [--no-pkg-mgr]
+	clamity selfupdate [-y] cron { installed | available | install <cron-template> | remove <cron-template> }
 "
 
 # Don't include common options here
 __CommandOptions="
-# 	--no-pkg-mgr
-# 		Update the clamity installation without including the package manager.
-# "
+	--no-pkg-mgr
+		Update the clamity installation without including the package manager.
+
+DESCRIPTION
+
+	update (default action)
+		Runs the self update function. The full monty includes:
+		  - backup clamity data and software (\$CLAMITY_ROOT and \$CLAMITY_HOME)
+		  - update clamity software (git pull)
+		  - update clamity python virtual environment (clam-py update)
+		  - update selected package manager (apt, brew, macports, ...) pkgs
+
+	cron
+		Manage a simple crontab entry to keep clamity updated. 'installled' lists
+		clamity additions currently in your crontab. 'available' lists the
+		templates included with clamity which can be installed.
+
+FILES
+
+	Logfiles created by crontab jobs.
+		\$CLAMITY_HOME/logs/*.cron.*
+"
 
 # For commands that have their own special env vars, inlude this section in
 # the man page.
@@ -58,7 +72,7 @@ __Examples="
 		clamity selfupdate
 
 	Update clamity non-interactively without the including the package manager
-		clamity selfupdate --no-pkg-mgr
+		clamity selfupdate -y --no-pkg-mgr
 "
 # ---------------------------------------------------------------------------
 
@@ -75,6 +89,16 @@ customCmdDesc="
 \n\tupdate - update clamity software (default action)
 "
 # ---------------------------------------------------------------------------
+
+function _c_cron {
+	local cmd=$1
+	[ -z "$cmd" ] && echo "clamity selfupdate [-y] cron { installed | available | install <cron-template> | remove <cron-template> }" && return 1
+	["$cmd" = help ] && {
+		_usage "$customCmdDesc" selfupdate help
+		return 1
+	}
+	echo "croning"
+}
 
 function _c_clamity_repo_is_clean {
 	local rc=0
@@ -144,6 +168,9 @@ rc=0
 case "$subcmd" in
 update)
 	_c_update_clamity || rc=1
+	;;
+cron)
+	_c_cron || rc=1
 	;;
 *)
 	_warn "unknown $cmd sub-command '$subcmd'. Try 'clamity $cmd help'." && rc=1

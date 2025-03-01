@@ -87,6 +87,7 @@ function new_root_module {
 
 	local cloudProvider=aws # FIXME: this should not be hard coded
 
+	# terraform.tf
 	echo "
 # This file is unique for each terraform root module. The key is a path prefix
 # applied to the S3 bucket state object. It provides for maintaining multiple
@@ -98,14 +99,20 @@ terraform {
   }
 }" >$rootModDir/backend.tf || return 1
 
+	# README.md
+	local modDoc="User defined module"
+	[ "$state" != users ] && modDoc="[Module document](https://github.com/teamvortexsoftware/infra-as-code/blob/$state/modules/$mod/$cloudProvider/README.md)"
 	echo "# $mod root module
 
-* [Module document](https://github.com/PKT5/infra-as-code/blob/$state/modules/$mod/$cloudProvider/README.md)
+* $modDoc
 * [State Listing](STATE.md)
 * [Output Data](OUTPUT.json)
 " >$rootModDir/README.md || return 1
 
-	echo "
+	# output.tf
+	if [ "$state" != users ]; then
+
+		echo "
 output \"props\" {
   value = module.$mod.props
 }
@@ -114,6 +121,24 @@ output \"debug\" {
   value = module.$mod.debug
 }" >$rootModDir/output.tf
 
+	else
+
+		echo "
+output \"props\" {
+  value = {
+      $mod = length(module.$mod) > 0 ? module.$mod[0].props : null
+  }
+}
+
+output \"debug\" {
+  value = {
+      $mod = length(module.$mod) > 0 ? module.$mod[0].debug : null
+  }
+}" >$rootModDir/output.tf
+
+	fi
+
+	# variables.tf
 	echo "
 variable \"custom_tags\" {
   type = map(string)
@@ -128,10 +153,12 @@ variable \"debug\" {
 }
 " >$rootModDir/variables.tf
 
+	# main.tf
 	echo "
 module \"$mod\" {
   source = \"../../../infra-as-code/modules/$mod/$cloudProvider\"
   providers = {
+	aws = aws.XXXX
   }
 
   custom_tags = var.custom_tags

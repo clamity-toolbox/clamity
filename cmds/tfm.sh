@@ -38,6 +38,7 @@ __Usage="
 	clamity $cmd common { report | update [mine] | new-root <state-group> <module-name> }
 	clamity $cmd settings { show | [un]set aws-profile [profile] }
 	clamity $cmd cicd complete [-reconfigure]
+	clamity $cmd debug [ on | off ]  # (un)sets the 'TF_VAR_debug' env var
 	clamity $cmd { terraform-cmd-and-args }
 "
 
@@ -277,6 +278,24 @@ function _tfm_commit_and_push {
 	return 0
 }
 
+function _tfm_set_debug {
+	case "$1" in
+	on) {
+		export TF_VAR_debug=1
+		_echo "tfm debug on"
+	} ;;
+	off) {
+		unset TF_VAR_debug
+		_echo "tfm debug off"
+	} ;;
+	*) {
+		[ -n "$TF_VAR_debug" ] && _echo "tfm debug on" || _echo "tfm debug off"
+		_echo "usage: clamity tfm debug { on | off }"
+	} ;;
+	esac
+	return 0
+}
+
 cmd=tfm
 _usage "$customCmdDesc" "$cmd" "$1" -command || return 1
 subcmd="$1" && shift
@@ -336,6 +355,9 @@ settings)
 	;;
 state-report)
 	_tfm_state_report "$@" || rc=1
+	;;
+debug)
+	_tfm_set_debug "$@" || rc=1
 	;;
 *)
 	_vecho "passing command thru to terraform..." && _run terraform "$subcmd" "$@" || rc=1

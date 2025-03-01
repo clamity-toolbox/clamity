@@ -57,7 +57,7 @@ customCmdDesc="
 "
 # ------------------------------------------------
 
-# returns 'brew', 'port', 'mismatch' or ''
+# returns 'brew', 'port', 'mismatch' or '' (default)
 function get_pkg_mgr {
 	[ "$CLAMITY_os_preferred_pkg_mgr" == brew ] && which brew >/dev/null 2>&1 && echo brew && return
 	[ "$CLAMITY_os_preferred_pkg_mgr" == brew ] && _warn "your preferred pkg mgr is homebrew but 'brew' isn't in your search path" && echo mismatch && return
@@ -75,12 +75,13 @@ function select_macos_pkg_mgr {
 	which port >/dev/null 2>&1 && local macports=1 || local macports=0
 	which brew >/dev/null 2>&1 && local homebrew=1 || local homebrew=0
 	[ $macports -eq 0 -a $homebrew -eq 0 ] && echo "Neither homebrew nor macports detected" && return 1
-	[ $(expr $macports + $homebrew) -gt 1 ] && echo "several package managers detected"
-	[ $macports -eq 1 ] && _ask "Do you want macports as your default pkg manager (y/N)? " && set_pkg_mgr_to port && return 0
+	[ $(expr $macports + $homebrew) -gt 1 ] && echo "Homebrew and macports detected both detected"
 	[ $homebrew -eq 1 ] && _ask "Do you want homebrew as your default pkg manager (y/N)? " && set_pkg_mgr_to brew && return 0
+	[ $macports -eq 1 ] && _ask "Do you want macports as your default pkg manager (y/N)? " && set_pkg_mgr_to port && return 0
 	return 1
 }
 
+# entry point for package manager selection
 function confirm_pkg_mgr {
 	local pm="$(get_pkg_mgr)"
 	if [ -z "$pm" -o "$pm" == mismatch ]; then
@@ -92,54 +93,16 @@ function confirm_pkg_mgr {
 	return 0
 }
 
-# # return the preferred package manager to use (offer to select if need be)
-# function pkg_mgr {
-# 	[ -n "$CLAMITY_os_preferred_pkg_mgr" ] && echo $CLAMITY_os_preferred_pkg_mgr && return
-# 	local os=`_os`
-# 	case "$os" in
-# 		al2)
-# 			set_pkg_mgr_to yum
-# 			;;
-# 		macos)
-# 			select_macos_pkg_mgr
-# 			;;
-# 		*)
-# 			# _error "OS '$os' not supported by pkg manager" && return 1
-# 			return 1
-# 			;;
-# 	esac
-# 	[ -z "$CLAMITY_os_preferred_pkg_mgr" ] && return 1
-# 	# [ -n "$CLAMITY_os_preferred_pkg_mgr" ] && { echo $CLAMITY_os_preferred_pkg_mgr | grep -q '^(brew|port|yum|apt)$' || { _error "pkg manager $CLAMITY_os_preferred_pkg_mgr is not suppoered"; return 1; }}
-# 	echo $CLAMITY_os_preferred_pkg_mgr
-# }
-
-# ---------- ABSTRACTED PACKAGES
-# pkg | min version | src {python|os} | brief desc
-
-# AbstractedPackages="
-# aws|2|python|aws cli utility
-# python3|3.10|os|python3 interpreter used to create virtual env
-# "
-
-# _ABSTRACTED_PKGS="awscli|awscliv2|docker|iptables|mail|mariadb|mysql|nginx|parallel|powershell|python|newrelic|vscode"
-
+# packages with native installation functions (not via the built in package manager)
 _ABSTRACTED_PKGS="aws"
 
 function list_special {
 	echo "
-aws             AWS CLI v2 (macos) [https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html]
-supabase-cli    (requires honmebrew) [https://supabase.com/docs/guides/local-development/cli/getting-started]
+aws             native, https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html
+neonctl         macport unavailable
+supabase-cli    https://supabase.com/docs/guides/local-development/cli/getting-started
+terraform       brew alias hashicorp/tap/terraform
 "
-	# docker        docker server
-	# iptables      iptables port redirection service (v4 only)
-	# mail          postfix email server
-	# mariadb       MariaDB
-	# mysql         MySQL
-	# newrelic      New Relic infrastructure agent
-	# nginx         nginx
-	# parallel      parallel command execution
-	# powershell    microsoft powershell (pwsh) for linux
-	# vscode        visual studio code
 	return 0
 }
 
@@ -237,7 +200,7 @@ function install_port_pkg {
 	local pkg="$1"
 	case "$pkg" in
 	supabase-cli | neonctl)
-		_error "$pkg not available for macports" && return 1
+		_error "$pkg not available via macports. Native installation not supported." && return 1
 		;;
 	*)
 		_run sudo port install $pkg || return 1
@@ -268,7 +231,7 @@ function install_pkg {
 		install_brew_pkg $cmd || return 1
 		;;
 	*)
-		_error "CLAMITY_os_preferred_pkg_mgr undefined or unknown ($CLAMITY_os_preferred_pkg_mgr)"
+		_error "'os_preferred_pkg_mgr' undefined or unknown ($CLAMITY_os_preferred_pkg_mgr)"
 		return 1
 		;;
 	esac
