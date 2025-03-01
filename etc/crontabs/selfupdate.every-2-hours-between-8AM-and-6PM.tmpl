@@ -1,0 +1,1 @@
+17 8-18/2 * * mon-fri SHELL --login -c "date && source CLAMITY_ROOT/loader.sh --quiet && run-clamity selfupdate -y --no-pkg-mgr && echo succeded || echo failed" >CLAMITY_HOME/logs/selfupdate.cron.last 2>&1

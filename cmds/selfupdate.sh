@@ -92,12 +92,41 @@ customCmdDesc="
 
 function _c_cron {
 	local cmd=$1
-	[ -z "$cmd" ] && echo "clamity selfupdate [-y] cron { installed | available | install <cron-template> | remove <cron-template> }" && return 1
-	["$cmd" = help ] && {
+	local usage="clamity selfupdate [-y] cron { installed | available | remove | install <cron-template>"
+	[ -z "$cmd" ] && echo "$usage" && return 1
+	[ "$cmd" = help ] && {
 		_usage "$customCmdDesc" selfupdate help
 		return 1
 	}
-	echo "croning"
+	case "$cmd" in
+	installed)
+		_run crontab -l | grep -q clamity && crontab -l | grep clamity || echo "no clamity cron jobs found"
+		;;
+	available)
+		_echo
+		_echo "Available clamity cron templates:"
+		_echo
+		(cd $CLAMITY_ROOT/etc/crontabs && ls selfupdate.*) | cut -f2 -d.
+		_echo
+		;;
+	remove)
+		crontab -l 2>/dev/null | grep -v "run-clamity selfupdate" >/tmp/clamity.cron.$$ # out with the old
+		crontab /tmp/clamity.cron.$$ || return 1
+		;;
+	install)
+		[ -z "$2" ] && _warn "cron template name required" && run-clamity selfupdate cron available && return 1
+		local tmpl="$CLAMITY_ROOT/etc/crontabs/selfupdate.$2.tmpl"
+		[ ! -f "$tmpl" ] && _warn "$tmpl not found" && return 1
+		crontab -l 2>/dev/null | grep -v "run-clamity selfupdate" >/tmp/clamity.cron.$$ # out with the old
+		cat $tmpl | sed "s|SHELL|$SHELL|g" | sed "s|CLAMITY_ROOT|$CLAMITY_ROOT|g" | sed "s|CLAMITY_HOME|$CLAMITY_HOME|g" >>/tmp/clamity.cron.$$ || return 1
+		crontab /tmp/clamity.cron.$$ || return 1
+		;;
+	*)
+		echo "$usage"
+		return 1
+		;;
+	esac
+	return 0
 }
 
 function _c_clamity_repo_is_clean {
@@ -170,12 +199,13 @@ update)
 	_c_update_clamity || rc=1
 	;;
 cron)
-	_c_cron || rc=1
+	_c_cron "$@" || rc=1
 	;;
 *)
 	_warn "unknown $cmd sub-command '$subcmd'. Try 'clamity $cmd help'." && rc=1
 	;;
 esac
 
+[ $rc -eq 1 ] && _error "'clamity $cmd $subcmd' failed."
 _clear_standard_options _opt_no_pkg_mgr
 return $rc
