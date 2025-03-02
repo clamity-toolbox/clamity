@@ -5,15 +5,20 @@
 source $CLAMITY_ROOT/lib/_.sh || exit 1
 
 __Abstract="
-    Many clamity functions operate in a given context. That context
-    is often specific to the task at hand. For example, if you're
-    working with AWS resources the AWS SDK access credentials and region
-    may determine part of the context. Use this sub-command to report
-    and amnipulate the various contexts clamity is aware of.
+	Many clamity functions operate in a given context. For example, if you're
+	working with AWS resources the AWS SDK access credentials and region will
+	determine the endpoint and role applied to the task at hand. Clamity is
+	aware of some context types and can let you switch between them.
+
+	Known context types:
+	- AWS
+	- Git based data packs
 "
 
+data_pack_usage="clamity context data-pack { installed | set [<data-pack>] | clear | install-git <data-pack-url-via-git> | remove <data-pack> | update | fetch [prop] }"
 __Usage="
 	clamity context { help | show }
+	$data_pack_usage
 "
 
 __CommandOptions=""
@@ -32,7 +37,9 @@ __EnvironmentVariables=""
 # "
 
 __Examples="
-	Examples are needed
+	Install some data packs.
+		clamity context data-pack install-git git@github.com:teamvortexsoftware/infra-data-dev
+		clamity context data-pack install-git git@github.com:teamvortexsoftware/infra-data-prod
 "
 
 # Help for local sub-commands
@@ -42,27 +49,133 @@ __Examples="
 # with '\n\t'.
 
 customCmdDesc="
+\n\tdata-pack - manage data packs
 \n\tshow - report contexts
 "
 # \n\tcheck - probe OS for config & environment info
 # \n\tpm - power management
 # "
 
+# ------------- DATA PACKS
+function install_git_data_pack {
+	local data_pack_url="$1"
+	local data_pack=$(echo $data_pack | rev | cut -f1 -d/ | cut -f1 -d/ | rev)
+	[ ! -d "$CLAMITY_HOME/data-packs" ] && { _run mkdir -p "$CLAMITY_HOME/data-packs" || return 1; }
+	[ -e "$CLAMITY_HOME/data-packs/$data_pack" ] && { _run echo "Data pack $data_pack already exists." || return 1; }
+	(cd "$CLAMITY_HOME/data-packs" && _run git clone --depth 1 "$data_pack_url") || return 1
+	[ ! -f "$CLAMITY_HOME/data-packs/$data_pack/.clamity/data-pack.sh" ] && _warn "Repo does not appear to be a clamity data pack." && _run /bin/rm -rf "$CLAMITY_HOME/data-packs/$data_pack" && return 1
+
+	source "$CLAMITY_HOME/data-packs/$data_pack/.clamity/data-pack.sh" "$CLAMITY_HOME/data-packs/$data_pack" || return 1
+	data_pack_install "$CLAMITY_HOME/data-packs/$data_pack" || return 1
+
+	return 0
+}
+
+function update_git_data_pack {
+	local data_pack="$1" force="$2"
+	# do a git update
+	local update_file="$CLAMITY_HOME/data-packs/lastupdated.$data_pack"
+	[ -z "$force" ] && [ -f "$update_file" ] && ! test $(find "$update_file" -mmin +120) && return 0 # nothing to do
+	(_run cd "$CLAMITY_HOME/data-packs/$data_pack" && _run git pull origin --rebase --autostash) || return 1
+	_run touch $update_file || return 1
+	source "$CLAMITY_HOME/data-packs/$data_pack/.clamity/data-pack.sh" "$CLAMITY_HOME/data-packs/$data_pack" || return 1
+	[ -n "$force" ] && {
+		data_pack_update "$CLAMITY_HOME/data-packs/$data_pack"
+		return $?
+	}
+	data_pack_update "$CLAMITY_HOME/data-packs/$data_pack" >/dev/null || return 1
+
+}
+
+function remove_git_data_pack {
+	local data_pack="$1"
+	[ ! -e "$CLAMITY_HOME/data-packs/$data_pack" ] && _warn "Data pack $data_pack not found." && return 1
+	_ask "Are you sure you want to remove data pack '$data_pack' (N/y)? " n || return 1
+	_run rm -rf "$CLAMITY_HOME/data-packs/$data_pack" || return 1
+}
+
+function fetch_from_data_pack {
+	local data_pack="$1" prop="$2"
+	source "$CLAMITY_HOME/data-packs/$data_pack/.clamity/data-pack.sh" "$CLAMITY_HOME/data-packs/$data_pack" || return 1
+	[ -z "$prop" ] && {
+		data_pack_list "$CLAMITY_HOME/data-packs/$data_pack"
+		return $?
+	}
+	data_pack_fetch "$CLAMITY_HOME/data-packs/$data_pack" "$prop"
+}
+
+function data_pack {
+	local action="$1"
+	[ -z "$action" ] && _warn "$data_pack_usage" && return 1
+	shift
+	local data_pack=""
+	[ -n "$1" ] && data_pack="$1" && shift
+	case "$action" in
+	installed)
+		[ $(ls "$CLAMITY_HOME/data-packs" 2>/dev/null | wc -l) -eq 0 ] && echo "no data packs installed" && return 1
+		(cd $CLAMITY_HOME/data-packs && ls)
+		;;
+	context)
+		local status="$CLAMITY_data_pack"
+		[ -z "$status" ] && local status="not set"
+		_fecho "Data Pack: $status"
+		;;
+	clear)
+		_echo "To unset the current data pack, use 'clamity config unset [default] data_pack'"
+		;;
+	set)
+		[ -z "$data_pack" ] && { [ -z "$CLAMITY_data_pack" ] && _echo "no data pack selected" || _echo "selected data pack: $CLAMITY_data_pack"; }
+		[ $(ls "$CLAMITY_HOME/data-packs" 2>/dev/null | wc -l) -eq 0 ] && echo "no data packs installed" && return 1
+		[ -z "$data_pack" ] && {
+			_echo "Installed data packs:"
+			(cd $CLAMITY_HOME/data-packs && ls)
+			return 1
+		}
+		[ ! -d "$CLAMITY_HOME/data-packs/$data_pack" ] && _error "Data pack '$data_pack' not found" && return 1
+		_echo "To set a data back, run 'clamity config set [default] data_pack $data_pack'"
+		# _run run-clamity config set $_x data_pack "$data_pack"
+		;;
+	install-git)
+		install_git_data_pack "$data_pack" || return 1
+		;;
+	remove)
+		remove_git_data_pack "$data_pack" || return 1
+		;;
+	fetch)
+		[ -z "$CLAMITY_data_pack" ] && _warn "Data pack not set" && return 1
+		update_git_data_pack "$CLAMITY_data_pack" >/dev/null || return 1
+		fetch_from_data_pack "$CLAMITY_data_pack" "$data_pack" "$@" || return 1
+		;;
+	update)
+		[ -z "$CLAMITY_data_pack" ] && _warn "Data pack not set" && return 1
+		update_git_data_pack "$CLAMITY_data_pack" -f || return 1
+		;;
+	*)
+		_error "unknown data-pack action ($action)"
+		return 1
+		;;
+	esac
+}
+
+# ------------- AWS
+
+# FIXME: this should be moved to the aws module
 function aws_context {
-    _fecho "AWS caller identity"
-    _run aws sts get-caller-identity || {
-        _error "no aws caller identity"
-        return 1
-    }
-    _fecho "Default region"
-    _run aws ec2 describe-availability-zones --output text --query 'AvailabilityZones[0].[RegionName]'
-    _fecho Env Vars:
-    env | grep ^AWS_
-    return 0
+	_fecho "AWS caller identity:"
+	_run aws sts get-caller-identity || {
+		_error "no aws caller identity"
+		return 1
+	}
+	_fecho "Effective default region:"
+	_run aws ec2 describe-availability-zones --output text --query 'AvailabilityZones[0].[RegionName]'
+	_fecho Env Vars:
+	env | grep ^AWS_
+	return 0
 }
 
 function show_context {
-    aws_context
+	aws_context
+	data_pack context
 }
 
 cmd=$(basename "$0")
@@ -72,15 +185,15 @@ subcmd="$1" && shift
 # _cmds_needed cmd1 cmd2 || { _error "Command(s) not found. One of: cmd1 cmd2" && exit 1; }
 
 _sub_command_is_external $cmd $subcmd && {
-    _run_clamity_subcmd $cmd $subcmd "$@"
-    exit $?
+	_run_clamity_subcmd $cmd $subcmd "$@"
+	exit $?
 }
 
 # Use the simple shell options parser which includes common options
 # -----------------------------------------------------------------
 # Options are exported env vars prefixed with CLAMITY_. eg.  CLAMITY_verbose="1"
 setup_clamity_options_parser \
-    Level1 --level1 1 0
+	Level1 --level1 1 0
 # optVarName    --opt-name    "<value-if-set>"  "<default>" \
 # boolOpttName  --opt2-name   1                 0 \
 # optWithValue  --val-opt     :                 ""       # : expects 1 arg
@@ -91,13 +204,17 @@ eval set -- $PARGS_POSITIONAL # accomodates '--' for positional args
 # internal command
 case "$subcmd" in
 show)
-    show_context
-    exit $?
-    ;;
+	show_context
+	exit $?
+	;;
+data-pack)
+	data_pack "$@"
+	exit $?
+	;;
 *)
-    _error "unknown $cmd sub-command ($subcmd)"
-    _usage "$customCmdDesc" "$cmd" "" -command
-    exit 1
-    ;;
+	_error "unknown $cmd sub-command ($subcmd)"
+	_usage "$customCmdDesc" "$cmd" "" -command
+	exit 1
+	;;
 esac
 exit 0
