@@ -6,6 +6,7 @@ from abc import ABC, abstractmethod
 from typing import Optional, Self, Callable
 from enum import Enum
 import sys
+import json
 import deepdiff
 import clamity.core.utils as cUtils
 import clamity.core.options as cOptions
@@ -808,7 +809,9 @@ class vpcs(_resources):
 
 
 class secretType(Enum):
-    SIMPLE = 1
+    SIMPLE = 1  # single value (string)
+    SSH_KEY = 2  # { "private": "ssh-rsa 2345hwduhasdf....", "public": "---BEGIN...." }
+    RDS_MYSQL = 3  # {"username":"admin","password":"SUPERDUPERPASSWORD","engine":"mysql","host":"ecs-test.random.us-east-2.rds.amazonaws.com","port":3306,"dbname":"testdb","dbInstanceIdentifier":"ecs-test"}  # noqa
 
 
 class secret(_resource):
@@ -847,30 +850,68 @@ class secret(_resource):
             self.value
         return self
 
+    def _validate(self, secretType: secretType, json_data: str) -> bool:
+        try:
+            data = json.loads(json_data)
+        except json.JSONDecodeError as e:
+            print(f"Failed to decode JSON from '{json_data}': {e}", file=sys.stderr)
+            return False
+        fail = False
+        if secretType == secretType.SSH_KEY:
+            if not data.get("private") and not data.get("public"):
+                print("One or both of private public key(s) required for SSH_KEY type", file=sys.stderr)
+        elif secretType == secretType.RDS_MYSQL:
+            for i in ["username", "password", "engine", "host", "port", "dbname", "dbInstanceIdentifier"]:
+                if not data.get(i) or data.get(i) is None or data.get(i) == "":
+                    print(f"missing required field '{i}' for RDS_MYSQL type", file=sys.stderr)
+                    fail = True
+            if data["engine"] != "mysql":
+                print("engine must be 'mysql' for RDS_MYSQL type", file=sys.stderr)
+                fail = True
+            if data["port"][0] != ":":
+                print("port must be prefexed with a colon :", file=sys.stderr)
+                fail = True
+        # if secretType == secretType.SSH_KEY:
+        #     try:
+        #         if not data.get("private") or not data.get("public"):
+        #             print("private and public keys required for SSH_KEY type", file=sys.stderr)
+        #             return False
+        #         if not cUtils.isPrivateKey(data["private"]) or not cUtils.isPublicKey(data["public"]):
+        #             print("invalid private or public key", file=sys.stderr)
+        #             return False
+        #     except Exception as e:
+        #         print("error validating SSH_KEY data", file=sys.stderr)
+        #         print(e, file=sys.stderr)
+        #         return False
+        else:
+            print("Unknown secret type", file=sys.stderr)
+            fail = True
+        return not fail
+
     def create(self, **kwargs) -> Optional[Self]:
         if self.exists or self.isDefunct:
             print("Cannot create resource if it exists or is defunct.", file=sys.stderr)
             return None
         self._region = kwargs.get("region") or self.session.default_region
-        if self._newData.get("type") == secretType.SIMPLE:
-            if not self._newData.get("name") or not self._newData.get("desc") or not self._newData.get("value"):
-                print("name, desc and value all required to create a simple secret", file=sys.stderr)
-                return False
-            response = self.session.client("secretsmanager", self.region).create_secret(
-                Name=self._newData["name"],
-                Description=self._newData["desc"],
-                SecretString=self._newData["value"],
-                Tags=[
-                    {"Key": "Name", "Value": self._newData["name"]},
-                ],
-            )
-            if response.get("ResponseMetadata") != 200:
-                cUtils.dumpJson(response, outputStream=sys.stderr)
+        if not self._newData.get("name") or not self._newData.get("desc") or not self._newData.get("value"):
+            print("name, desc and data/value all required to create a simple secret", file=sys.stderr)
+            return False
+        if self._newData.get("type") != secretType.SIMPLE:
+            if not self._validate(self._newData.get("type"), self._newData["value"]):
+                print("data validation failed", file=sys.stderr)
                 return None
-            self._exists = True
-        else:
-            print("don't know how to create type")
+        response = self.session.client("secretsmanager", self.region).create_secret(
+            Name=self._newData["name"],
+            Description=self._newData["desc"],
+            SecretString=self._newData["value"],
+            Tags=[
+                {"Key": "Name", "Value": self._newData["name"]},
+            ],
+        )
+        if response.get("ResponseMetadata") != 200:
+            cUtils.dumpJson(response, outputStream=sys.stderr)
             return None
+        self._exists = True
         return self.refresh()
 
     def update(self, **kwargs) -> Optional[Self]:

@@ -32,6 +32,9 @@ class CmdOptions(metaclass=Singleton):
         self._argparser = argparse.ArgumentParser(*args, **{**kwargs, **{"formatter_class": argparse.RawTextHelpFormatter}})
         return self
 
+    def add_mutually_exclusive_group(self, *args, **kwargs) -> argparse.ArgumentParser:
+        return self._argparser.add_mutually_exclusive_group(*args, **kwargs)
+
     def add_argument(self, *args, **kwargs) -> None:
         self._argparser.add_argument(*args, **kwargs)
 

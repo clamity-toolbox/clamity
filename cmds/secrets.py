@@ -22,8 +22,10 @@ from clamity import aws
 Usage = """
     clamity secrets { list | help }
     clamity secrets write --name secret/path/and/name --desc "useful desc" --value "supersecret"
+    clamity secrets write --name secret/path/and/name --desc "useful desc" \\
+                          --type <known-type> --value '{"prop1": "val", "prop2": "val2", ...}'
     clamity secrets { read | details | delete } --name secret/path/and/name
-    clamity secrets update --name secret/path/and/name [--desc "updated desc"] [--value "newsecret"]
+    clamity secrets update --name secret/path/and/name [--desc "updated desc"] [[--type <known-type>] --value "secret-data"]
 """
 
 ActionsAndSupplemental = """
@@ -80,14 +82,16 @@ def secrets_schema():
         exit(1)
 
 
+knownKeyTypes = ["ssh_key", "rds_mysql"]  # see resources.py:secretType
 options = CmdOptions().parser(description=__doc__, usage=Usage, epilog=ActionsAndSupplemental)
 options.add_args(["common", "aws"])
 options.add_argument(
-    "action", choices=["list", "delete", "update", "write", "read", "details", "help"], help="action to take"
+    "action", choices=["list", "types", "delete", "update", "write", "read", "details", "help"], help="action to take"
 )
 options.add_argument("--desc", type=str, help="useful description of the secret (possibly a URL)")
-options.add_argument("--value", type=str, help="the secret's value")
 options.add_argument("--name", type=str, help="secret's path and name (secret store key)")
+options.add_argument("--value", type=str, help="the secret's value")
+options.add_argument("--type", type=str, choices=knownKeyTypes, help="add secret validation")
 
 if len(sys.argv) == 1:
     options.print_usage()
@@ -103,13 +107,24 @@ match opts.action:
         if not opts.desc or not opts.value or not opts.name:
             print("--name, --value and --desc are required when adding a secret", file=sys.stderr)
             exit(1)
+        if not opts.type:
+            secretsType = aws.resources.secretType.SIMPLE
+        else:
+            keyTypes = {
+                "ssh_key": aws.resources.secretType.SSH_KEY,
+                "rds_mysql": aws.resources.secretType.RDS_MYSQL,
+            }
+            if opts.type not in keyTypes:
+                print("Unknown secret type (try 'clamity secrets types')", file=sys.stderr)
+                exit(1)
+            secretType = keyTypes[opts.type]
         s = aws.resources.resourceFactory.new(
             aws.resources.resourceType.SECRET,
             props={
                 "name": opts.name,
                 "desc": opts.desc,
                 "value": opts.value,
-                "type": aws.resources.secretType.SIMPLE,
+                "type": secretType,
             },
         )
         s.create()
@@ -143,7 +158,14 @@ match opts.action:
             }
         )
 
-    case "_":
+    case "types":
+        print("Known secret types:")
+        print('ssh_key: {"public": "ssh-rsa 2345hwduhasdf....", "private": "---BEGIN..."}')
+        print(
+            'rds_mysql: {"username":"admin","password":"SUPER_DUPER_PASSWORD","engine":"mysql","host":"ecs-test.random.us-east-2.rds.amazonaws.com","port":3306,"dbname":"testdb","dbInstanceIdentifier":"ecs-test"}'  # noqa
+        )
+
+    case _:
         options.print_usage()
         exit(1)
 
