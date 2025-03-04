@@ -172,22 +172,26 @@ class _resource(ABC):
         self._exists = False
         self._describeData = {}
         self._newData = {}
-        self._region = None
-        if "_describeData" in kwargs:
-            self._region = kwargs["region"]
+        self._region = self.get_region(**kwargs)
+        if "_describeData" in kwargs:  # loaded from AWS
             self._exists = True
+            # self._region = kwargs["region"]
             self._describeData = kwargs["_describeData"]
-        elif kwargs.get("props"):
+        elif kwargs.get("props"):  # creating something new (_might_ exist)
             # cUtils.dumpJson?(kwargs["props"])
             for p, v in kwargs["props"].items():
-                if p not in self._props:
+                if p not in self._props:  # validate property is allowed
                     print(f"property {p} not allowed", file=sys.stder)
                     exit(1)
-                elif not isinstance(v, self._props[p]):
+                elif not isinstance(v, self._props[p]):  # validate property is correct type
                     # print(">>", p, self._props[p])
                     print(f"property '{p}' type mismatch. Should be {self._props[p]}")
                     exit(1)
                 self._newData[p] = v
+            # verify that the resource doesn't already exist
+            if not self.verifyNewResource(kwargs["props"]):
+                print("resource already exists on AWS")
+                exit(1)
 
     @property
     def isDefunct(self) -> bool:
@@ -197,6 +201,14 @@ class _resource(ABC):
 
     @property
     def exists(self) -> bool:
+        return self._exists
+
+    # Classes overload this method to ensure a request for new resource with
+    # props isn't going to duplicate an existing resource.
+    # The overloading function should load and adjust the resource as needed if
+    # before returning True or return False to abort.
+    @property
+    def verifyNewResource(self, props: dict) -> bool:
         return self._exists
 
     @property
@@ -276,7 +288,7 @@ class _resources(ABC):
     def __init__(self, **kwargs) -> None:
         self._resourceCache = resourceCache(self.__class__.__name__)
         self._resourcesList = []
-        self._region = None
+        self._region = self.get_region(**kwargs)
 
     def __iter__(self):
         return iter(self._resourcesList)
@@ -841,12 +853,26 @@ class secret(_resource):
         lcd = self._describeDataProp("LastChangedDate")
         return None if not lcd else f"{cUtils.convertToUtcStandardFormat(lcd)}"
 
+    def verifyNewResource(self, props: dict) -> bool:
+        if not props.get("name"):
+            print("name required to create a secret", file=sys.stderr)
+            return False
+        response = self.session.client("secretsmanager", self.region).describe_secret(SecretId=props["name"])
+        # resource does exist in cloud, load it
+        if _checkHttpResponse(response):
+            print("Secret is pre-existing")
+            self._exists = True
+            self._describeData = response
+            self._details = None
+            self._newData.update(props)
+        return True
+
     def refresh(self, **kwargs) -> Self:
         if hasattr(self, "_describeData"):
             self._details = None
             self._describeData = self.details
-        if hasattr(self, "__value"):
-            self.__value = None
+        if hasattr(self, "__secret_value"):
+            self.__secret_value = None
             self.value
         return self
 
@@ -889,17 +915,24 @@ class secret(_resource):
         return not fail
 
     def create(self, **kwargs) -> Optional[Self]:
-        if self.exists or self.isDefunct:
-            print("Cannot create resource if it exists or is defunct.", file=sys.stderr)
+        if self.isDefunct:
+            print("resource is defunct.", file=sys.stderr)
             return None
+
         self._region = kwargs.get("region") or self.session.default_region
         if not self._newData.get("name") or not self._newData.get("desc") or not self._newData.get("value"):
             print("name, desc and data/value all required to create a simple secret", file=sys.stderr)
             return False
+
         if self._newData.get("type") != secretType.SIMPLE:
             if not self._validate(self._newData.get("type"), self._newData["value"]):
                 print("data validation failed", file=sys.stderr)
                 return None
+
+        if self.exists:
+            # Update instead of create
+            return self.update(**{**kwargs, "value": self._newData.get("value"), "desc": self._newData.get("desc")})
+
         response = self.session.client("secretsmanager", self.region).create_secret(
             Name=self._newData["name"],
             Description=self._newData["desc"],
@@ -931,7 +964,7 @@ class secret(_resource):
                 SecretId=self.arn,
                 Description=kwargs["desc"],
             )
-            cUtils.dumpJson(response)
+            # cUtils.dumpJson(response)
             if not _checkHttpResponse(response):
                 return None
         return self.refresh()
@@ -959,12 +992,12 @@ class secret(_resource):
 
     @property
     def _value(self) -> dict:
-        if not hasattr(self, "__value"):
+        if not hasattr(self, "__secret_value"):
             response = self.session.client("secretsmanager", self.region).get_secret_value(SecretId=self.arn)
             if not _checkHttpResponse(response):
                 return {}
-            self.__value = response
-        return self.__value
+            self.__secret_value = response
+        return self.__secret_value
 
     @property
     def value(self) -> str:
