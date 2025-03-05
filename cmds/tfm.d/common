@@ -114,11 +114,15 @@ terraform {
 
 		echo "
 output \"props\" {
-  value = module.$mod.props
+  value = {
+    $mod = module.$mod.props
+  }
 }
 
 output \"debug\" {
-  value = module.$mod.debug
+  value = {
+    $mod = module.$mod.debug
+  }
 }" >$rootModDir/output.tf
 
 	else
