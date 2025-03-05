@@ -947,6 +947,16 @@ class secret(_resource):
         self._exists = True
         return self.refresh()
 
+    def restore(self, name: str) -> bool:
+        response = self.session.client("secretsmanager", self.region).restore_secret(
+            SecretId=name,
+        )
+        if not _checkHttpResponse(response):
+            print("secret failed to restore", file=sys.stderr)
+            return False
+        print(f"secret {name} restored")
+        return True
+
     def update(self, **kwargs) -> Optional[Self]:
         if not self.exists or self.isDefunct:
             print("secret not yet created or is defunct", file=sys.stderr)

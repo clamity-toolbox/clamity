@@ -86,7 +86,9 @@ knownKeyTypes = ["ssh_key", "rds_mysql"]  # see resources.py:secretType
 options = CmdOptions().parser(description=__doc__, usage=Usage, epilog=ActionsAndSupplemental)
 options.add_args(["common", "aws"])
 options.add_argument(
-    "action", choices=["list", "types", "delete", "update", "write", "read", "details", "help"], help="action to take"
+    "action",
+    choices=["list", "types", "delete", "update", "write", "read", "details", "restore", "help"],
+    help="action to take",
 )
 options.add_argument("--desc", type=str, help="useful description of the secret (possibly a URL)")
 options.add_argument("--name", type=str, help="secret's path and name (secret store key)")
@@ -134,6 +136,12 @@ match opts.action:
             print("--name and --value or --desc required when adding a secret", file=sys.stderr)
             exit(1)
         exit(0 if aws.resources.secrets().fetch().findOne(opts.name).update(desc=opts.desc, value=opts.value) else 1)
+
+    case "restore":
+        if not opts.name:
+            print("--name required", file=sys.stderr)
+            exit(1)
+        exit(0 if aws.resources.secret().restore(opts.name) else 1)
 
     case "delete":
         if not opts.name:

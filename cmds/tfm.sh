@@ -316,12 +316,13 @@ _set_aws_profile || return 1
 if [ -x "$CLAMITY_ROOT/cmds/tfm.d/$subcmd" ]; then
 	export TFM_REPO_ROOT="$TFM_REPO_ROOT"
 	if [ "$(_tfm_prop audit_applies)" -a $subcmd = apply ]; then
-		_tfm_check_repo_before_apply || return 1
-
-		local _opt_commit=1 argList="" var
+		local _opt_commit=1 _opt_check=1 argList="" var
 		echo "$@" | grep -q '\--no-commit' && _opt_commit=0
+		echo "$@" | grep -q '\--no-check' && _opt_check=0
 
-		for var in "$@"; do [ "$var" != "--no-commit" ] && argList="$argList $var"; done
+		[ $_opt_check -eq 1 ] && { _tfm_check_repo_before_apply || { echo "use --no-check to bypass this check" && return 1; }; }
+
+		for var in "$@"; do [ "$var" != "--no-commit" -a "$var" != "--no-check" ] && argList="$argList $var"; done
 
 		echo "AUDIT APPLY: $CLAMITY_ROOT/cmds/tfm.d/$subcmd" $argList >AUDIT.log
 
