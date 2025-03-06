@@ -21,6 +21,10 @@ source clamity/loader.sh
   - Flake8
   - Black Formatter
 
+  ```
+  code --install-extension foxundermoon.shell-format && code --install-extension stkb.rewrap && code --install-extension ms-python.python && code --install-extension ms-python.flake8 && code --install-extension ms-python.black-formatter
+  ```
+
 - Set the python interpreter (`cmd pallet >Python: Command Interpreter`) to
   `~/.clamity/pyvenv/bin/python3` - Do _NOT_ use the OS's file browser window,
   type the command and path in the box explicitly so VS Code doesn't infer a
