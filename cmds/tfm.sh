@@ -278,6 +278,19 @@ function _tfm_commit_and_push {
 	return 0
 }
 
+function capture_plan_with_secrets {
+	# local outfile="$1"
+	# [ -z "$1" ] && echo "usage: clamity tfm debug-plan" && return 1
+	_ask "This will capture secrets in .debug.tfplan.*. Continue? (Y/n) " y || return 0
+	# https://discuss.hashicorp.com/t/how-to-show-sensitive-values/24076
+	local tf_var_debug_val="$TF_VAR_debug" rc=0
+	[ -z "$TF_VAR_debug" ] && _run export TF_VAR_debug=1
+	_run terraform plan -out=".debug.tfplan.bin" || rc=1
+	[ $rc -eq 0 ] && { echo "terraform show -json tfplan | python3 -m json.tool >.debug.tfplan.json" && terraform show -json tfplan | python3 -m json.tool >.debug.tfplan.json || rc=1; }
+	[ -z "$tf_var_debug_val" ] && _run unset TF_VAR_debug
+	return $rc
+}
+
 function _tfm_set_debug {
 	case "$1" in
 	on) {
@@ -359,6 +372,9 @@ state-report)
 	;;
 debug)
 	_tfm_set_debug "$@" || rc=1
+	;;
+debug-plan)
+	capture_plan_with_secrets || rc=1
 	;;
 *)
 	_vecho "passing command thru to terraform..." && _run terraform "$subcmd" "$@" || rc=1
