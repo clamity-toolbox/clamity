@@ -110,7 +110,7 @@ match opts.action:
             print("--name, --value and --desc are required when adding a secret", file=sys.stderr)
             exit(1)
         if not opts.type:
-            secretsType = aws.resources.secretType.SIMPLE
+            secretType = aws.resources.secretType.SIMPLE
         else:
             keyTypes = {
                 "ssh_key": aws.resources.secretType.SSH_KEY,

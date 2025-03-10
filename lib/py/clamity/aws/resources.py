@@ -853,18 +853,25 @@ class secret(_resource):
         lcd = self._describeDataProp("LastChangedDate")
         return None if not lcd else f"{cUtils.convertToUtcStandardFormat(lcd)}"
 
+    # returning false will abort
     def verifyNewResource(self, props: dict) -> bool:
         if not props.get("name"):
             print("name required to create a secret", file=sys.stderr)
             return False
-        response = self.session.client("secretsmanager", self.region).describe_secret(SecretId=props["name"])
-        # resource does exist in cloud, load it
-        if _checkHttpResponse(response):
-            print("Secret is pre-existing")
-            self._exists = True
-            self._describeData = response
-            self._details = None
-            self._newData.update(props)
+        try:
+            response = self.session.client("secretsmanager", self.region).describe_secret(SecretId=props["name"])
+            if _checkHttpResponse(response):
+                print("Secret is pre-existing")
+                self._exists = True
+                self._describeData = response
+                self._details = None
+                self._newData.update(props)
+        except self.session.client("secretsmanager", self.region).exceptions.ResourceNotFoundException:
+            # If the secret doesn't exist, that's fine for creating a new one
+            print(f"Secret '{props['name']}' does not exist yet, will create a new one")
+        except Exception as e:
+            print(f"Error checking if secret exists: {e}", file=sys.stderr)
+            exit(1)
         return True
 
     def refresh(self, **kwargs) -> Self:
