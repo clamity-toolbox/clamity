@@ -377,7 +377,8 @@ debug-plan)
 	capture_plan_with_secrets || rc=1
 	;;
 *)
-	_vecho "passing command thru to terraform..." && _run terraform "$subcmd" "$@" || rc=1
+	[ "$subcmd" = plan ] && { update_custom_dependencies || rc=1; }
+	[ $rc -eq 0 ] && { _vecho "passing command thru to terraform..." && _run terraform "$subcmd" "$@" || rc=1; }
 	;;
 esac
 

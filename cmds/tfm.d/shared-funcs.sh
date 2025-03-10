@@ -19,3 +19,9 @@ function _tfm_record_results {
 	fi
 	return $rc
 }
+
+function update_custom_dependencies {
+	[ ! -x "./dependencies.sh" ] && return 0
+	_echo "Updating custom dependencies (dependencies.sh found)..."
+	_run ./dependencies.sh -f
+}

@@ -9,7 +9,8 @@ ec=0
 tf_var_debug_val="$TF_VAR_debug"
 [ -n "$TF_VAR_debug" ] && _echo "unsetting TF_VAR_debug for apply. Will reset after" && unset TF_VAR_debug
 
-_run terraform apply "$@" && _tfm_record_results || ec=1
+update_custom_dependencies || ec=1
+[ $ec -eq 0 ] && { _run terraform apply "$@" && _tfm_record_results || ec=1; }
 [ -n "$tf_var_debug" ] && _vrun export TF_VAR_debug="$tf_var_debug"
 
 exit $ec
