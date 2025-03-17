@@ -21,14 +21,17 @@ __Abstract="
 # one or more lines detailing usage patterns (REQUIRED)
 __Usage="
 	clamity selfupdate help
-	clamity selfupdate [-y] [update] [--no-pkg-mgr]
+	clamity selfupdate [-y] [update] [ [--no-pkg-mgr] [--no-backup] [--no-python] | [--me-only] ]
 	clamity selfupdate [-y] cron { installed | available | install <cron-template> | remove <cron-template> }
 "
 
 # Don't include common options here
 __CommandOptions="
-	--no-pkg-mgr
-		Update the clamity installation without including the package manager.
+	--no-pkg-mgr --no-backup --no-python
+		Update the clamity installation without performing the specified task(s).
+
+	--me-only
+		Only update the clamity software, do not perform any other tasks.
 
 DESCRIPTION
 
@@ -171,10 +174,10 @@ function _c_backup_clamity {
 
 function _c_update_clamity {
 	[ -d "$CLAMITY_ROOT/.git" ] && { _c_clamity_repo_is_clean || return 1; }
-	_ask "Backup clamity before we begin (Y/n)? " y && { _c_backup_clamity || return 1; }
+	[ $_opt_no_backup -eq 0 ] && { _ask "Backup clamity before we begin (Y/n)? " y && { _c_backup_clamity || return 1; }; }
 	[ -d "$CLAMITY_ROOT/.git" ] && { _c_update_git_installation || return 1; } || { _c_update_tarball_installaton || return 1; }
-	_echo "Updating python packages in clamity venv" && _run $CLAMITY_ROOT/bin/clam-py update || return 1
-	[ "$_opt_no_pkg_mgr" -eq 0 ] && _ask "Update OS packages (Y/n)? " y && { _run $CLAMITY_ROOT/bin/run-clamity os pkg selfupdate || return 1; }
+	[ $_opt_no_python -eq 0 ] && { _echo "Updating python packages in clamity venv" && _run $CLAMITY_ROOT/bin/clam-py update || return 1; }
+	[ $_opt_no_pkg_mgr -eq 0 ] && _ask "Update OS packages (Y/n)? " y && { _run $CLAMITY_ROOT/bin/run-clamity os pkg selfupdate || return 1; }
 	_clear_clamity_module_cache
 }
 
@@ -190,7 +193,10 @@ _sub_command_is_external $cmd $subcmd && {
 }
 
 _set_standard_options "$@"
+echo "$@" | grep -q '\--no-backup' && _opt_no_backup=1 || _opt_no_backup=0
+echo "$@" | grep -q '\--no-python' && _opt_no_python=1 || _opt_no_python=0
 echo "$@" | grep -q '\--no-pkg-mgr' && _opt_no_pkg_mgr=1 || _opt_no_pkg_mgr=0
+echo "$@" | grep -q '\--me-only' && _opt_no_python=1 && _opt_no_backup=1 && _opt_no_pkg_mgr=1
 
 # Execute sub-commands
 rc=0
