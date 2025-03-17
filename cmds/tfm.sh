@@ -315,6 +315,7 @@ subcmd="$1" && shift
 
 # Establish this is a clamity compatible terraform repo
 TFM_REPO_ROOT="$(_git_repo_root)"
+[ -z "$TFM_REPO_ROOT" ] && echo "I could not find the repo root" && return 1
 tfmRepo=1
 [ -f "$TFM_REPO_ROOT/.clamity/config/settings.sh" ] && grep -q '^terraform_repo=1$' "$TFM_REPO_ROOT/.clamity/config/settings.sh" || tfmRepo=0
 [ -z "$TFM_REPO_ROOT" -o $tfmRepo -eq 0 ] && echo "this does not look like a clamity compatible terraform repo" && return 1

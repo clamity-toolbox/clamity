@@ -398,8 +398,9 @@ function _cmds_needed { # verify command dependency
 # Git related
 # -----------
 function _git_repo_root { # find git repo root based on current directory
-	local curDir=$(pwd)
+	local curDir="$(pwd)"
 	while [ "$curDir" != "/" -a "$curDir" != "$HOME" ]; do
+		_debug "checking $curDir for .git/"
 		[ -d "$curDir/.git" ] && echo "$curDir" && return
 		curDir="$(dirname $curDir)"
 	done
