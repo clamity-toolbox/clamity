@@ -21,7 +21,7 @@ function _tfm_record_results {
 }
 
 function update_custom_dependencies {
-	[ ! -x "./dependencies.sh" ] && return 0
-	_echo "Updating custom dependencies (dependencies.sh found)..."
-	_run ./dependencies.sh -f
+	[ -x "./dependencies.eval.sh" ] && { echo "eval'ing output from ./dependencies.eval.sh - these settings will be retained in the environment" >&2 && eval $(./dependencies.eval.sh) || return 1; }
+	[ -x "./dependencies.sh" ] && { _echo "executing ./dependencies.sh -f" && _run ./dependencies.sh -f || return 1; }
+	return 0
 }
