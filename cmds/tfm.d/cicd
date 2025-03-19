@@ -14,7 +14,7 @@ function complete_run {
 	cd $TFM_REPO_ROOT || return 1
 	for mod in $($TFM_REPO_ROOT/.clamity/config/module-sequence.sh); do
 		cd $TFM_REPO_ROOT/state-groups/$mod || return 1
-		_echo "Processing $(pwd)"
+		_echo -e "--------------------\nProcessing $(pwd)"
 		[ -f .terraform/terraform.tfstate -a \( $ReInit -eq 1 \) ] && { _run run-clamity tfm init -reconfigure || return 1; }
 		[ ! -f .terraform/terraform.tfstate ] && { _run run-clamity tfm init || return 1; }
 		_run run-clamity tfm plan || return 1

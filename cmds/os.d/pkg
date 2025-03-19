@@ -183,6 +183,9 @@ function install_abstracted_pkg {
 function install_brew_pkg {
 	local pkg="$1"
 	case "$pkg" in
+	auth0)
+		_run brew tap auth0/auth0-cli && brew install auth0 || return 1
+		;;
 	terraform)
 		_run brew install hashicorp/tap/terraform || return 1
 		;;
