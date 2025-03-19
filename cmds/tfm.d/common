@@ -170,6 +170,25 @@ module \"$mod\" {
 }
 " >$rootModDir/main.tf
 
+	# dependency hooks for clamity
+	echo "#!/usr/bin/env bash
+
+# clamity dependency hook
+#
+# Make this file executable and clamity will run it with a '-f' flag prior to
+# running a terraform plan or apply. It must return 0 for success, non-zero for
+# failure.
+" >$rootModDir/dependencies.sh
+
+	echo "#!/usr/bin/env bash
+
+# clamity dependency hook
+#
+# Make this file executable and clamity will run 'eval' against its output This
+# is useful if you want to set environment variables prior to the terraform plan
+# or apply.  Output, for example, might be 'export TF_VAR_xyz=abc'.
+" >$rootModDir/dependencies.eval.sh
+
 	touch $rootModDir/STATE.md $rootModDir/OUTPUT.json $rootModDir/AUDIT.log || return 1
 }
 
