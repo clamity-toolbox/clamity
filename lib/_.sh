@@ -6,7 +6,7 @@ function __clamity_lib_cache_enabled {
 	[ "$CLAMITY_disable_module_cache" -eq 0 ]
 }
 
-__clamity_lib_cache_enabled && [ -n "$__clammod_loaded" ] && return 0 || __clammod_loaded=1
+# __clamity_lib_cache_enabled && [ -n "$__clammod_loaded" ] && return 0 || __clammod_loaded=1
 # [ -n "$__clammod_loaded" ] && return 0 || __clammod_loaded=1
 
 source $CLAMITY_ROOT/lib/_/options-parser.sh || return 1
