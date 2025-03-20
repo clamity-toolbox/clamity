@@ -36,6 +36,7 @@ __Usage="
 	clamity $cmd { vars | smart-import | record-results } [-reconfigure] [tfm-options]
 	clamity $cmd apply [--no-commit] [tfm-options]
 	clamity $cmd common { report | update [mine] | new-root <state-group> <module-name> }
+	clamity $cmd debug-plan
 	clamity $cmd settings { show | [un]set aws-profile [profile] }
 	clamity $cmd cicd complete [-reconfigure]
 	clamity $cmd debug [ on | off ]  # (un)sets the 'TF_VAR_debug' env var
@@ -65,6 +66,9 @@ SUB-COMMANDS
 		terraform code, at the outer-most level, requires specific attributes
 		and properties for the deployment, such as provider definitions which
 		often result in duplicated code.
+
+	debug-plan
+		Capture a terraform plan with secrets in a .debug.tfplan.* file.
 
 	record-results
 		Saves state listing to STATE.md and output to OUTPUT.json.
@@ -165,6 +169,7 @@ customCmdDesc="
 \n\trecord-results - saves state to STATE.md and output to OUTPUT.json
 \n\tsettings - set properties for the repo
 \n\tstate-report - summarize resource deployments by state group
+\n\tdebug-plan - capture a terraform plan to .debug.tfplan.json (includes sensitive data)
 "
 # ---------------------------------------------------------------------------
 
@@ -286,8 +291,9 @@ function capture_plan_with_secrets {
 	local tf_var_debug_val="$TF_VAR_debug" rc=0
 	[ -z "$TF_VAR_debug" ] && _run export TF_VAR_debug=1
 	_run terraform plan -out=".debug.tfplan.bin" || rc=1
-	[ $rc -eq 0 ] && { echo "terraform show -json tfplan | python3 -m json.tool >.debug.tfplan.json" && terraform show -json tfplan | python3 -m json.tool >.debug.tfplan.json || rc=1; }
+	[ $rc -eq 0 ] && { echo "terraform show -json .debug.tfplan.bin | python3 -m json.tool >.debug.tfplan.json" && terraform show -json .debug.tfplan.bin | python3 -m json.tool >.debug.tfplan.json || rc=1; }
 	[ -z "$tf_var_debug_val" ] && _run unset TF_VAR_debug
+	echo "Plan captured in .debug.tfplan.json"
 	return $rc
 }
 
