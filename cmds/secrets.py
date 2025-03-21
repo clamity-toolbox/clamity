@@ -15,6 +15,7 @@ synopsis:
 
 import sys
 import os
+import json
 from clamity.core.options import CmdOptions
 import clamity.core.utils as cUtils
 from clamity import aws
@@ -80,6 +81,13 @@ def secrets_schema():
     elif not os.path.exists(schema):
         print(f"Secrets schema {schema} not found")
         exit(1)
+
+
+def print_secret_value(value: str) -> None:
+    try:
+        cUtils.dumpJson(json.loads(value))
+    except json.JSONDecodeError:
+        print(value)
 
 
 knownKeyTypes = ["ssh_key", "rds_mysql"]  # see resources.py:secretType
@@ -153,7 +161,7 @@ match opts.action:
         if not opts.name:
             print("--name required", file=sys.stderr)
             exit(1)
-        print(aws.resources.secrets().fetch().findOne(opts.name).value)
+        print_secret_value(aws.resources.secrets().fetch().findOne(opts.name).value)
 
     case "details":
         if not opts.name:
